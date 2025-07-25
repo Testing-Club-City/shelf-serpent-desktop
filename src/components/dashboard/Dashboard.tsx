@@ -29,6 +29,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { useSystemSettings, getSchoolNameFromSettings } from '@/hooks/useSystemSettings';
 import { GlobalSearchBar } from '@/components/search/GlobalSearchBar';
+import ConnectionStatus from '@/components/ConnectionStatus';
 
 export type TabType = 'overview' | 'books' | 'students' | 'staff' | 'borrowing' | 'reports' | 'dashboard' | 'profile' | 'admin';
 
@@ -418,8 +419,16 @@ export const Dashboard = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* System Status - REMOVED */}
+              {/* Connection Status */}
+              <div className="hidden lg:block">
+                <ConnectionStatus showDetails={false} />
+              </div>
             </div>
+          </div>
+
+          {/* Connection Status Panel for smaller screens */}
+          <div className="lg:hidden mt-3 pt-3 border-t border-gray-200">
+            <ConnectionStatus showDetails={true} />
           </div>
 
           {/* Mobile Enhanced Search Bar */}

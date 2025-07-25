@@ -18,7 +18,8 @@ import {
   ChevronRight,
   BookMarked,
   GraduationCap,
-  Shield
+  Shield,
+  Cloud
 } from 'lucide-react';
 
 const navigation = [
@@ -33,6 +34,7 @@ const navigation = [
 
 const adminNavigation = [
   { name: 'Admin Panel', href: '/admin', icon: Shield, badge: 'Admin' },
+  { name: 'Sync Config', href: '/sync', icon: Cloud, badge: 'Sync' },
 ];
 
 export const Sidebar = () => {
