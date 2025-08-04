@@ -102,6 +102,54 @@ class CategoriesDataService {
       throw error;
     }
   }
+
+  async updateCategory(categoryId: string, categoryData: any): Promise<void> {
+    try {
+      await offlineDataService.updateCategory(categoryId, categoryData);
+      console.log('Category updated in offline database:', categoryId);
+
+      if (this.isOnline) {
+        try {
+          const { error } = await supabase
+            .from('categories')
+            .update(categoryData)
+            .eq('id', categoryId);
+
+          if (error) throw error;
+          console.log('Category update synced to Supabase');
+        } catch (syncError) {
+          console.error('Failed to sync category update to Supabase:', syncError);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to update category:', error);
+      throw error;
+    }
+  }
+
+  async deleteCategory(categoryId: string): Promise<void> {
+    try {
+      await offlineDataService.deleteCategory(categoryId);
+      console.log('Category deleted from offline database:', categoryId);
+
+      if (this.isOnline) {
+        try {
+          const { error } = await supabase
+            .from('categories')
+            .delete()
+            .eq('id', categoryId);
+
+          if (error) throw error;
+          console.log('Category deletion synced to Supabase');
+        } catch (syncError) {
+          console.error('Failed to sync category deletion to Supabase:', syncError);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to delete category:', error);
+      throw error;
+    }
+  }
 }
 
 // React hooks
@@ -147,6 +195,60 @@ export const useCreateCategoryOffline = () => {
     onError: (error) => {
       toast({
         title: "Failed to create category",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive",
+      });
+    },
+  });
+};
+
+export const useUpdateCategoryOffline = () => {
+  const { toast } = useToast();
+  const connectivity = useConnectivity();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ categoryId, categoryData }: { categoryId: string; categoryData: any }) => {
+      const service = new CategoriesDataService(connectivity);
+      return await service.updateCategory(categoryId, categoryData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories', 'offline-first'] });
+      toast({
+        title: "Category updated",
+        description: "Category updated in offline database and will sync when online",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to update category",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive",
+      });
+    },
+  });
+};
+
+export const useDeleteCategoryOffline = () => {
+  const { toast } = useToast();
+  const connectivity = useConnectivity();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (categoryId: string) => {
+      const service = new CategoriesDataService(connectivity);
+      return await service.deleteCategory(categoryId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories', 'offline-first'] });
+      toast({
+        title: "Category deleted",
+        description: "Category deleted from offline database and will sync when online",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to delete category",
         description: error instanceof Error ? error.message : "Unknown error occurred",
         variant: "destructive",
       });

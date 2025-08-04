@@ -9,8 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Plus, Edit, Trash2, BookOpen, Tag, Loader2, Eye, ArrowLeft, ChevronLeft, ChevronRight, ArrowUp, ArrowDown } from 'lucide-react';
-import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from '@/hooks/useCategories';
-import { useBooks } from '@/hooks/useBooks';
+import { useCategoriesOffline, useCreateCategoryOffline, useUpdateCategoryOffline, useDeleteCategoryOffline } from '@/hooks/useCategoriesOffline';
+import { useBooksOffline } from '@/hooks/useBooksOffline';
 import { useToast } from '@/hooks/use-toast';
 
 interface CategoryManagementProps {
@@ -19,11 +19,12 @@ interface CategoryManagementProps {
 }
 
 export const CategoryManagement = ({ isOpen, onOpenChange }: CategoryManagementProps) => {
-  const { data: categories = [], isLoading, refetch } = useCategories();
-  const { data: books = [] } = useBooks();
-  const createCategory = useCreateCategory();
-  const updateCategory = useUpdateCategory();
-  const deleteCategory = useDeleteCategory();
+  // Use offline-first hooks for better performance and offline capability
+  const { data: categories = [], isLoading, refetch } = useCategoriesOffline();
+  const { data: books = [] } = useBooksOffline();
+  const createCategory = useCreateCategoryOffline();
+  const updateCategory = useUpdateCategoryOffline();
+  const deleteCategory = useDeleteCategoryOffline();
   const { toast } = useToast();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -114,9 +115,11 @@ export const CategoryManagement = ({ isOpen, onOpenChange }: CategoryManagementP
 
     try {
       await updateCategory.mutateAsync({
-        id: selectedCategory.id,
-        name: formData.name.trim(),
-        description: formData.description.trim() || null
+        categoryId: selectedCategory.id,
+        categoryData: {
+          name: formData.name.trim(),
+          description: formData.description.trim() || null
+        }
       });
       
       resetForm();

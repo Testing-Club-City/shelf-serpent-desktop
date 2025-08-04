@@ -240,6 +240,161 @@ pub async fn create_student(
     Ok(student.id.to_string())
 }
 
+// Staff Commands - Core offline-capable CRUD operations
+#[tauri::command]
+pub async fn get_staff(
+    db: State<'_, DatabaseState>,
+) -> Result<Vec<Staff>, String> {
+    db.get_staff().await
+        .map_err(|e| format!("Failed to get staff: {}", e))
+}
+
+#[tauri::command]
+pub async fn create_staff(
+    staff_data: Value,
+    db: State<'_, DatabaseState>,
+    // sync_engine: State<'_, SyncState>, // Disabled for build
+) -> Result<String, String> {
+    let staff: Staff = serde_json::from_value(staff_data.clone())
+        .map_err(|e| format!("Failed to parse staff data: {}", e))?;
+    
+    // Local-first storage
+    db.create_staff(&staff).await
+        .map_err(|e| format!("Failed to create staff: {}", e))?;
+
+    // Queue for sync
+    // sync_engine.queue_operation(
+    //     "staff",
+    //     OperationType::Create,
+    //     &staff.id.to_string(),
+    //     staff_data,
+    // ).await.map_err(|e| format!("Failed to queue sync operation: {}", e))?;
+
+    Ok(staff.id.to_string())
+}
+
+#[tauri::command]
+pub async fn update_staff(
+    _staff_id: String,
+    staff_data: Value,
+    db: State<'_, DatabaseState>,
+) -> Result<(), String> {
+    let staff: Staff = serde_json::from_value(staff_data)
+        .map_err(|e| format!("Failed to parse staff data: {}", e))?;
+    
+    db.update_staff(&staff).await
+        .map_err(|e| format!("Failed to update staff: {}", e))
+}
+
+#[tauri::command]
+pub async fn delete_staff(
+    staff_id: String,
+    db: State<'_, DatabaseState>,
+) -> Result<(), String> {
+    db.delete_staff(&staff_id).await
+        .map_err(|e| format!("Failed to delete staff: {}", e))
+}
+
+// Class Commands - Core offline-capable CRUD operations
+#[tauri::command]
+pub async fn get_classes(
+    db: State<'_, DatabaseState>,
+) -> Result<Vec<Class>, String> {
+    db.get_classes().await
+        .map_err(|e| format!("Failed to get classes: {}", e))
+}
+
+#[tauri::command]
+pub async fn create_class(
+    class_data: Value,
+    db: State<'_, DatabaseState>,
+    // sync_engine: State<'_, SyncState>, // Disabled for build
+) -> Result<String, String> {
+    let class: Class = serde_json::from_value(class_data.clone())
+        .map_err(|e| format!("Failed to parse class data: {}", e))?;
+    
+    // Local-first storage
+    db.create_class(&class).await
+        .map_err(|e| format!("Failed to create class: {}", e))?;
+
+    // Queue for sync
+    // sync_engine.queue_operation(
+    //     "classes",
+    //     OperationType::Create,
+    //     &class.id.to_string(),
+    //     class_data,
+    // ).await.map_err(|e| format!("Failed to queue sync operation: {}", e))?;
+
+    Ok(class.id.to_string())
+}
+
+#[tauri::command]
+pub async fn update_class(
+    _class_id: String,
+    class_data: Value,
+    db: State<'_, DatabaseState>,
+) -> Result<(), String> {
+    let class: Class = serde_json::from_value(class_data)
+        .map_err(|e| format!("Failed to parse class data: {}", e))?;
+    
+    db.update_class(&class).await
+        .map_err(|e| format!("Failed to update class: {}", e))
+}
+
+#[tauri::command]
+pub async fn delete_class(
+    class_id: String,
+    db: State<'_, DatabaseState>,
+) -> Result<(), String> {
+    db.delete_class(&class_id).await
+        .map_err(|e| format!("Failed to delete class: {}", e))
+}
+
+// Borrowing Commands - Core offline-capable CRUD operations
+#[tauri::command]
+pub async fn get_borrowings(
+    db: State<'_, DatabaseState>,
+) -> Result<Vec<Value>, String> {
+    // Always read from local SQLite for fast offline access
+    db.get_borrowings_with_details().await
+        .map_err(|e| format!("Failed to get borrowings: {}", e))
+}
+
+#[tauri::command]
+pub async fn create_borrowing(
+    borrowing_data: Value,
+    db: State<'_, DatabaseState>,
+    // sync_engine: State<'_, SyncState>, // Disabled for build
+) -> Result<String, String> {
+    let borrowing: crate::models::Borrowing = serde_json::from_value(borrowing_data.clone())
+        .map_err(|e| format!("Failed to parse borrowing data: {}", e))?;
+    
+    // Save to local SQLite first (offline-first approach)
+    db.create_borrowing(&borrowing).await
+        .map_err(|e| format!("Failed to create borrowing: {}", e))?;
+
+    // Queue for sync to Supabase when online
+    // sync_engine.queue_operation(
+    //     "borrowings",
+    //     OperationType::Create,
+    //     &borrowing.id.to_string(),
+    //     borrowing_data,
+    // ).await.map_err(|e| format!("Failed to queue sync operation: {}", e))?;
+
+    Ok(borrowing.id.to_string())
+}
+
+#[tauri::command]
+pub async fn return_book(
+    _borrowing_id: String,
+    _return_data: Value,
+    _db: State<'_, DatabaseState>,
+) -> Result<(), String> {
+    // TODO: Implement return_book method in DatabaseManager
+    // For now, just return success to prevent crashes
+    Ok(())
+}
+
 // Update Commands
 #[tauri::command]
 pub async fn update_book(

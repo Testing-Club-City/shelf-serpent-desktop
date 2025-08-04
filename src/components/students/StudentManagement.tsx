@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, Plus, Users, Eye, Edit, Trash2, AlertCircle } from 'lucide-react';
 import { useStudents, useCreateStudent, useUpdateStudent, useDeleteStudent } from '@/hooks/useStudents';
+import { useStudentsOffline, useCreateStudentOffline, useUpdateStudentOffline, useDeleteStudentOffline } from '@/hooks/useStudentsOffline';
 import { useOptimizedStudents } from '@/hooks/useOptimizedStudents';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -58,7 +59,10 @@ export const StudentManagement = ({ searchTerm = '', openAddStudentForm = false 
   // Define effectiveSearchTerm here at the top
   const effectiveSearchTerm = searchTerm || localSearchTerm;
   
-  // Use the enhanced useStudents hook with fetchAll=true to get all students at once
+  // Use the offline-first hook for better performance and offline capability
+  const { data: studentsData, isLoading: studentsLoading } = useStudentsOffline();
+  
+  // Use the enhanced useStudents hook with fetchAll=true as fallback for statistics
   const { data: studentsResponse, isLoading } = useStudents({ 
     fetchAll: true, 
     searchTerm: effectiveSearchTerm 
@@ -66,8 +70,9 @@ export const StudentManagement = ({ searchTerm = '', openAddStudentForm = false 
   
   const { data: optimizedStudentsData, isLoading: optimizedLoading } = useOptimizedStudents(1, 10); // Get total count
   
-  // Extract students array safely
-  const students = Array.isArray(studentsResponse?.students) ? studentsResponse.students : [];
+  // Prefer offline data, fallback to online data
+  const students = Array.isArray(studentsData) ? studentsData : 
+                  Array.isArray(studentsResponse?.students) ? studentsResponse.students : [];
   
   // Get accurate student statistics
   const { data: studentStats } = useQuery({
@@ -87,9 +92,9 @@ export const StudentManagement = ({ searchTerm = '', openAddStudentForm = false 
     }
   });
   
-  const createStudentMutation = useCreateStudent();
-  const updateStudentMutation = useUpdateStudent();
-  const deleteStudentMutation = useDeleteStudent();
+  const createStudentMutation = useCreateStudentOffline();
+  const updateStudentMutation = useUpdateStudentOffline();
+  const deleteStudentMutation = useDeleteStudentOffline();
 
   // Use external search term when provided
   useEffect(() => {

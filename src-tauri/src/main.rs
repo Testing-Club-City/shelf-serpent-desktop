@@ -1,5 +1,5 @@
-// Prevents additional console window on Windows in release, DO NOT REMOVE!!
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// Temporarily enable console window on Windows for debugging
+// #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
 mod database;
@@ -14,11 +14,53 @@ use database::DatabaseManager;
 use sync::SupabaseConfig;
 use std::sync::Arc;
 use sqlx::sqlite::SqlitePool;
-use tauri::Manager;
+use tauri::{
+    AppHandle, 
+    Manager, 
+    menu::{Menu, MenuItem, PredefinedMenuItem},
+    tray::{TrayIconBuilder, TrayIconEvent},
+};
+
+// Function to create the system tray menu
+fn create_tray_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
+    let menu = Menu::new(app)?;
+    
+    // Simple menu - just show/hide and quit
+    menu.append(&MenuItem::with_id(app, "show_app", "Show Library Manager", true, None::<&str>)?)?;
+    menu.append(&MenuItem::with_id(app, "hide_app", "Hide to Tray", true, None::<&str>)?)?;
+    menu.append(&PredefinedMenuItem::separator(app)?)?;
+    menu.append(&MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?)?;
+    
+    Ok(menu)
+}
+
+// Function to handle tray menu events
+fn handle_tray_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
+    match event.id().as_ref() {
+        "show_app" => {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }
+        "hide_app" => {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.hide();
+            }
+        }
+        "quit" => {
+            app.exit(0);
+        }
+        _ => {}
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize tracing
+    // Initialize tracing with reduced verbosity for GUI framework warnings
+    if std::env::var("RUST_LOG").is_err() {
+        std::env::set_var("RUST_LOG", "tauri_app=info,warn,tao=error");
+    }
     tracing_subscriber::fmt::init();
 
     // Initialize database
@@ -96,6 +138,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             update_student,
             delete_student,
             
+            // Staff commands
+            create_staff,
+            get_staff,
+            update_staff,
+            delete_staff,
+            
+            // Class commands
+            create_class,
+            get_classes,
+            update_class,
+            delete_class,
+            
+            // Borrowing commands - Core offline-capable operations
+            get_borrowings,
+            create_borrowing,
+            return_book,
+            
             // Category commands
             create_category,
             get_categories,
@@ -158,10 +217,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             get_app_version,
         ])
         .setup(move |app| {
+            // Create system tray with sync operations
+            let tray_menu = create_tray_menu(app.handle())?;
+            let _tray = TrayIconBuilder::new()
+                .menu(&tray_menu)
+                .on_menu_event(move |app, event| handle_tray_event(app, event))
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click { .. } = event {
+                        if let Some(window) = tray.app_handle().get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                })
+                .build(app)?;
+
             #[cfg(debug_assertions)]
             {
-                let window = app.get_webview_window("main").unwrap();
-                window.open_devtools();
+                let _window = app.get_webview_window("main").unwrap();
+                // _window.open_devtools(); // Method not available in this Tauri version
             }
 
             // Make sync completely non-blocking and optional

@@ -232,7 +232,10 @@ export const SyncActionBar: React.FC = () => {
         {/* Professional Sync Panel */}
         <ProfessionalSyncPanel 
           isOpen={isPanelOpen} 
-          onClose={() => setIsPanelOpen(false)} 
+          onClose={() => {
+            console.log('SyncActionBar: Closing panel, current state:', isPanelOpen);
+            setIsPanelOpen(false);
+          }} 
         />
       </div>
     </TooltipProvider>

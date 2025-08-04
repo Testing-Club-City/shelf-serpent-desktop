@@ -37,6 +37,25 @@ export interface Student {
   phone?: string;
   grade?: string;
   class?: string;
+  class_id?: string;
+  admission_number?: string;
+  status?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Class {
+  id: string;
+  name: string;
+  class_name?: string;
+  description?: string;
+  teacher_name?: string;
+  grade_level?: string;
+  academic_year?: string;
+  academic_level_type?: string;
+  form_level?: number;
+  class_section?: string;
+  max_books_allowed?: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -49,7 +68,9 @@ export interface Staff {
   email: string;
   phone?: string;
   role: string;
+  position?: string;
   department?: string;
+  status?: string;
   created_at?: string;
   updated_at?: string;
 }

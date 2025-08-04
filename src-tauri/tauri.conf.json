@@ -29,6 +29,7 @@
       "csp": null,
       "dangerousDisableAssetCspModification": true
     },
+    "withGlobalTauri": true,
     "trayIcon": {
       "iconPath": "icons/icon.png",
       "iconAsTemplate": true

@@ -24,7 +24,8 @@ import {
   DollarSign,
   Settings,
   UsersIcon,
-  Shield
+  Shield,
+  X
 } from 'lucide-react';
 import { useProfessionalSync } from '@/hooks/useProfessionalSync';
 import { useConnectivity } from '@/hooks/useConnectivity';
@@ -94,6 +95,21 @@ export const ProfessionalSyncPanel: React.FC<SyncPanelProps> = ({ isOpen, onClos
     }
   }, [isOpen, getLocalStats]);
 
+  // Handle escape key to close panel
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        console.log('Escape key pressed');
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen, onClose]);
+
   const formatLastSync = (lastSync: string | null) => {
     if (!lastSync) return 'Never';
     const date = new Date(lastSync);
@@ -117,16 +133,39 @@ export const ProfessionalSyncPanel: React.FC<SyncPanelProps> = ({ isOpen, onClos
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center">
-      <Card className="w-full max-w-4xl m-4 mb-0 rounded-t-lg rounded-b-none shadow-2xl border-t">
+    <div 
+      className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center"
+      onClick={(e) => {
+        // Close when clicking on backdrop
+        if (e.target === e.currentTarget) {
+          console.log('Backdrop clicked');
+          onClose();
+        }
+      }}
+    >
+      <Card 
+        className="w-full max-w-4xl m-4 mb-0 rounded-t-lg rounded-b-none shadow-2xl border-t"
+        onClick={(e) => e.stopPropagation()} // Prevent backdrop close when clicking inside
+      >
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <Database className="h-5 w-5" />
               <CardTitle>Professional Data Synchronization</CardTitle>
             </div>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              ×
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Close button clicked');
+                onClose();
+              }} 
+              className="hover:bg-red-100 h-8 w-8 p-0"
+              aria-label="Close sync panel"
+            >
+              <X className="h-4 w-4" />
             </Button>
           </div>
           <CardDescription>

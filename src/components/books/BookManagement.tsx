@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { BookOpen, Plus, Search, Filter, Edit, Trash2, Eye, Tag } from 'lucide-react';
 import { useBooks, useCreateBook, useUpdateBook, useDeleteBook } from '@/hooks/useBooks';
+import { useBooksOffline } from '@/hooks/useBooksOffline';
 import { useCategories } from '@/hooks/useCategories';
 import { SimpleBookForm } from './SimpleBookForm';
 import { BookDetails } from './BookDetails';
@@ -31,7 +32,12 @@ interface BookManagementProps {
 }
 
 export const BookManagement = ({ searchTerm, openAddBookForm = false }: BookManagementProps) => {
+  // Use offline-first hooks for better performance and offline capability
+  const { data: booksOffline, isLoading: offlineLoading } = useBooksOffline();
   const { data: books, isLoading } = useBooks();
+  
+  // Prefer offline data, fallback to online data
+  const displayBooks = booksOffline || books || [];
   const { data: categories } = useCategories();
   const createBook = useCreateBook();
   const updateBook = useUpdateBook();
@@ -65,14 +71,14 @@ export const BookManagement = ({ searchTerm, openAddBookForm = false }: BookMana
   // Use local search term if provided, otherwise use the one from props
   const activeSearchTerm = localSearchTerm || searchTerm;
 
-  const filteredBooks = books?.filter(book => {
+  const filteredBooks = displayBooks?.filter(book => {
     const searchTermLower = activeSearchTerm.toLowerCase();
     const matchesSearch = activeSearchTerm === '' ||
       book.title.toLowerCase().includes(searchTermLower) ||
       book.author.toLowerCase().includes(searchTermLower) ||
       book.isbn?.toLowerCase().includes(searchTermLower) ||
-      book.book_code?.toLowerCase().includes(searchTermLower) ||
-      (book.legacy_book_id && book.legacy_book_id.toString().includes(activeSearchTerm));
+      (book as any).book_code?.toLowerCase().includes(searchTermLower) ||
+      ((book as any).legacy_book_id && (book as any).legacy_book_id.toString().includes(activeSearchTerm));
 
     const matchesCategory = filterCategory === 'all' || book.category_id === filterCategory;
 
@@ -240,7 +246,7 @@ export const BookManagement = ({ searchTerm, openAddBookForm = false }: BookMana
             Book Management
           </h1>
           <p className="text-muted-foreground mt-1">
-            Manage your library collection • {filteredBooks.length} of {books?.length || 0} books
+            Manage your library collection • {filteredBooks.length} of {displayBooks?.length || 0} books
           </p>
         </div>
         <div className="flex gap-2">
@@ -350,13 +356,13 @@ export const BookManagement = ({ searchTerm, openAddBookForm = false }: BookMana
                 {currentItems.map((book) => (
                   <TableRow key={book.id}>
                     <TableCell className="font-mono text-sm">
-                      {book.book_code || 'N/A'}
+                      {(book as any).book_code || 'N/A'}
                     </TableCell>
                     <TableCell className="font-medium">{book.title}</TableCell>
                     <TableCell>{book.author}</TableCell>
                     <TableCell>
-                      {book.categories?.name && (
-                        <Badge variant="outline">{book.categories.name}</Badge>
+                      {(book as any).categories?.name && (
+                        <Badge variant="outline">{(book as any).categories.name}</Badge>
                       )}
                     </TableCell>
                     <TableCell>
@@ -367,10 +373,10 @@ export const BookManagement = ({ searchTerm, openAddBookForm = false }: BookMana
                     </TableCell>
                     <TableCell>
                       <Badge variant={
-                        book.status === 'available' ? 'default' :
-                        book.status === 'unavailable' ? 'destructive' : 'secondary'
+                        (book as any).status === 'available' ? 'default' :
+                        (book as any).status === 'unavailable' ? 'destructive' : 'secondary'
                       }>
-                        {book.status}
+                        {(book as any).status || 'unknown'}
                       </Badge>
                     </TableCell>
                     <TableCell>

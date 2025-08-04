@@ -8,9 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Plus, Users, BookOpen, GraduationCap, Calendar, Edit2, Trash2 } from 'lucide-react';
-import { useClasses, useCreateClass, useUpdateClass, useDeleteClass } from '@/hooks/useClasses';
-import { useStudents } from '@/hooks/useStudents';
-import { useOptimizedStudents } from '@/hooks/useOptimizedStudents';
+import { useClassesOffline, useCreateClassOffline, useUpdateClassOffline, useDeleteClassOffline } from '@/hooks/useClassesOffline';
+import { useStudentsOffline } from '@/hooks/useStudentsOffline';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -53,15 +52,13 @@ const ACADEMIC_LEVELS = {
 };
 
 export const ClassManagement = () => {
-  const { data: classes = [], isLoading, refetch } = useClasses();
-  const { data: studentsResponse } = useStudents({ fetchAll: true });
-  const { data: studentsData } = useOptimizedStudents(1, 10);
+  // Use offline-first hooks for better performance and offline capability
+  const { data: classes = [], isLoading, refetch } = useClassesOffline();
+  const { data: students = [] } = useStudentsOffline();
   
-  // Extract students array safely
-  const students = studentsResponse?.students || [];
-  const createClass = useCreateClass();
-  const updateClass = useUpdateClass();
-  const deleteClass = useDeleteClass();
+  const createClass = useCreateClassOffline();
+  const updateClass = useUpdateClassOffline();
+  const deleteClass = useDeleteClassOffline();
   const { toast } = useToast();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -94,7 +91,10 @@ export const ClassManagement = () => {
       console.log('Submitting class data:', classData);
       
       if (isEditMode && editingClassId) {
-        await updateClass.mutateAsync({ id: editingClassId, ...classData });
+        await updateClass.mutateAsync({ 
+          classId: editingClassId, 
+          classData: classData 
+        });
         toast({
           title: 'Success',
           description: 'Class updated successfully',
@@ -220,7 +220,7 @@ export const ClassManagement = () => {
 
   // Remove duplicates first
   const uniqueClasses = classes.reduce((acc, current) => {
-    const existingClass = acc.find(cls => cls.class_name === current.class_name);
+    const existingClass = acc.find(cls => (cls as any).class_name === (current as any).class_name);
     if (!existingClass) {
       acc.push(current);
     }
@@ -232,18 +232,18 @@ export const ClassManagement = () => {
     
     return uniqueClasses.sort((a, b) => {
       // First sort by academic level type
-      if (a.academic_level_type !== b.academic_level_type) {
-        return a.academic_level_type === 'form' ? -1 : 1;
+      if ((a as any).academic_level_type !== (b as any).academic_level_type) {
+        return (a as any).academic_level_type === 'form' ? -1 : 1;
       }
       // Then by form level
-      if (a.form_level !== b.form_level) {
-        return a.form_level - b.form_level;
+      if ((a as any).form_level !== (b as any).form_level) {
+        return (a as any).form_level - (b as any).form_level;
       }
       // Finally by section
-      if (!a.class_section && !b.class_section) return 0;
-      if (!a.class_section) return -1;
-      if (!b.class_section) return 1;
-      return a.class_section.localeCompare(b.class_section);
+      if (!(a as any).class_section && !(b as any).class_section) return 0;
+      if (!(a as any).class_section) return -1;
+      if (!(b as any).class_section) return 1;
+      return (a as any).class_section.localeCompare((b as any).class_section);
     });
   };
 
@@ -256,9 +256,9 @@ export const ClassManagement = () => {
 
     try {
       const studentsWithClasses = students.filter(student => {
-        const studentClass = classes.find(cls => cls.id === student.class_id);
+        const studentClass = classes.find(cls => cls.id === (student as any).class_id);
         return studentClass ? 
-          (studentClass.form_level >= 1 && studentClass.form_level <= 4 ? 'form' : 'grade') : 
+          ((studentClass as any).form_level >= 1 && (studentClass as any).form_level <= 4 ? 'form' : 'grade') : 
           null;
       });
 
@@ -266,12 +266,12 @@ export const ClassManagement = () => {
       const graduations = [];
 
       for (const student of studentsWithClasses) {
-        const currentClass = classes.find(cls => cls.id === student.class_id);
+        const currentClass = classes.find(cls => cls.id === (student as any).class_id);
         if (!currentClass) continue;
 
-        const academicType = currentClass.academic_level_type || 
-          (currentClass.form_level >= 1 && currentClass.form_level <= 4 ? 'form' : 'grade');
-        const currentLevel = currentClass.form_level.toString();
+        const academicType = (currentClass as any).academic_level_type || 
+          ((currentClass as any).form_level >= 1 && (currentClass as any).form_level <= 4 ? 'form' : 'grade');
+        const currentLevel = (currentClass as any).form_level.toString();
         const nextLevel = ACADEMIC_LEVELS[academicType as keyof typeof ACADEMIC_LEVELS]?.progression[currentLevel];
 
         if (nextLevel === 'graduate') {
@@ -283,12 +283,12 @@ export const ClassManagement = () => {
           });
         } else if (nextLevel) {
           const nextClass = classes.find(cls => {
-            const clsAcademicType = cls.academic_level_type || 
-              (cls.form_level >= 1 && cls.form_level <= 4 ? 'form' : 'grade');
+            const clsAcademicType = (cls as any).academic_level_type || 
+              ((cls as any).form_level >= 1 && (cls as any).form_level <= 4 ? 'form' : 'grade');
             
             return clsAcademicType === academicType && 
-              cls.form_level.toString() === nextLevel &&
-              cls.class_section === currentClass.class_section;
+              (cls as any).form_level.toString() === nextLevel &&
+              (cls as any).class_section === (currentClass as any).class_section;
           });
 
           if (nextClass) {
@@ -330,7 +330,7 @@ export const ClassManagement = () => {
   };
 
   const getStudentsInClass = (classId: string) => {
-    return students.filter(student => student.class_id === classId);
+    return students.filter(student => (student as any).class_id === classId);
   };
 
   const getStudentCount = (classId: string) => {
@@ -339,7 +339,7 @@ export const ClassManagement = () => {
 
   const getActiveStudentCount = (classId: string) => {
     return getStudentsInClass(classId).filter(
-      student => student.status === 'active'
+      student => (student as any).status === 'active'
     ).length;
   };
 
@@ -552,7 +552,7 @@ export const ClassManagement = () => {
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-600">Total Students</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {studentsData?.totalCount || 0}
+                  {students?.length || 0}
                 </p>
               </div>
             </div>
@@ -578,7 +578,7 @@ export const ClassManagement = () => {
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-600">Avg. Book Limit</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {allClasses.length > 0 ? Math.round(allClasses.reduce((sum, cls) => sum + (cls.max_books_allowed || 2), 0) / allClasses.length) : 2}
+                  {allClasses.length > 0 ? Math.round(allClasses.reduce((sum, cls) => sum + ((cls as any).max_books_allowed || 2), 0) / allClasses.length) : 2}
                 </p>
               </div>
             </div>
@@ -604,14 +604,14 @@ export const ClassManagement = () => {
           {allClasses.map((classItem) => {
             const totalStudents = getStudentCount(classItem.id);
             const activeStudents = getActiveStudentCount(classItem.id);
-            const academicType = classItem.academic_level_type || 
-              (classItem.form_level >= 1 && classItem.form_level <= 4 ? 'form' : 'grade');
+            const academicType = (classItem as any).academic_level_type || 
+              ((classItem as any).form_level >= 1 && (classItem as any).form_level <= 4 ? 'form' : 'grade');
             
             return (
               <Card key={classItem.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">{classItem.class_name}</CardTitle>
+                    <CardTitle className="text-lg">{(classItem as any).class_name}</CardTitle>
                     <div className="flex items-center gap-2">
                       <Badge variant={activeStudents > 0 ? 'default' : 'secondary'}>
                         {activeStudents} Active
@@ -628,7 +628,7 @@ export const ClassManagement = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDelete(classItem.id, classItem.class_name)}
+                          onClick={() => handleDelete(classItem.id, (classItem as any).class_name)}
                           className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -637,8 +637,8 @@ export const ClassManagement = () => {
                     </div>
                   </div>
                   <CardDescription>
-                    {academicType === 'form' ? 'Form' : 'Grade'} {classItem.form_level}
-                    {classItem.class_section && ` • Section ${classItem.class_section}`}
+                    {academicType === 'form' ? 'Form' : 'Grade'} {(classItem as any).form_level}
+                    {(classItem as any).class_section && ` • Section ${(classItem as any).class_section}`}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -669,7 +669,7 @@ export const ClassManagement = () => {
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-600">Max Books Allowed:</span>
-                      <span className="font-medium">{classItem.max_books_allowed || 2} books</span>
+                      <span className="font-medium">{(classItem as any).max_books_allowed || 2} books</span>
                     </div>
                     
                     {totalStudents === 0 && (
@@ -692,7 +692,7 @@ export const ClassManagement = () => {
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {viewingClassId && `Students in ${classes.find(c => c.id === viewingClassId)?.class_name || 'Selected Class'}`}
+              {viewingClassId && `Students in ${(classes.find(c => c.id === viewingClassId) as any)?.class_name || 'Selected Class'}`}
             </DialogTitle>
           </DialogHeader>
           {viewingClassId && (
@@ -700,13 +700,13 @@ export const ClassManagement = () => {
               {getStudentsInClass(viewingClassId).length > 0 ? (
                 getStudentsInClass(viewingClassId).map(student => (
                   <div key={student.id} className="p-3 border rounded-lg">
-                    <div className="font-medium">{student.first_name} {student.last_name}</div>
+                    <div className="font-medium">{(student as any).first_name} {(student as any).last_name}</div>
                     <div className="text-sm text-gray-500">
-                      Admission: {student.admission_number}
+                      Admission: {(student as any).admission_number}
                     </div>
                     <div className="text-sm text-gray-500">
-                      Status: <span className={student.status === 'active' ? 'text-green-600' : 'text-gray-600'}>
-                        {student.status}
+                      Status: <span className={(student as any).status === 'active' ? 'text-green-600' : 'text-gray-600'}>
+                        {(student as any).status}
                       </span>
                     </div>
                   </div>

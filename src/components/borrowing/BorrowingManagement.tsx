@@ -62,6 +62,7 @@ import { NewBorrowingForm } from './NewBorrowingForm';
 import { BookReturnForm } from './BookReturnForm';
 import { DirectReturnForm } from './DirectReturnForm';
 import { useBorrowings, useOverdueBorrowings, useFineCollection, useReturnBorrowing, useCreateBorrowing, useTheftReports } from '@/hooks/useBorrowings';
+import { useBorrowingsOffline } from '@/hooks/useBorrowingsOffline';
 import { useFines, usePayFine, useClearFine, useCollectFine, getFineAmountBySetting, getFineTypeDescription } from '@/hooks/useFineManagement';
 import { format, differenceInDays } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -72,7 +73,7 @@ import { useDocumentMetaContext } from '@/hooks/useDocumentMetaContext';
 import { GroupBorrowingForm } from './GroupBorrowingForm';
 import { GroupReturnForm } from './GroupReturnForm';
 import { useGroupBorrowings, useCreateGroupBorrowing, useReturnGroupBorrowing } from '@/hooks/useGroupBorrowings';
-import { useClasses } from '@/hooks/useClasses';
+import { useClassesOffline } from '@/hooks/useClassesOffline';
 import { useStudents } from '@/hooks/useStudents';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
@@ -212,11 +213,13 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
   const [returnsPage, setReturnsPage] = useState(1);
   const [finesPage, setFinesPage] = useState(1);
 
+  // Use offline-first hooks for better performance and offline capability
+  const { data: borrowingsOffline, isLoading: offlineLoading } = useBorrowingsOffline();
   const { data: borrowingsData, isLoading: borrowingsLoading } = useBorrowings(1, 50);
   const { data: overdueData, isLoading: overdueLoading } = useOverdueBorrowings(1, 50);
   
-  // Extract data from the new hook response structure
-  const borrowings = borrowingsData?.data || [];
+  // Prefer offline data, fallback to online data
+  const borrowings = borrowingsOffline || borrowingsData?.data || [];
   const totalBorrowings = borrowingsData?.totalCount || 0;
   const overdueBorrowings = overdueData?.data || [];
   const totalOverdue = overdueData?.totalCount || 0;
@@ -231,7 +234,7 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
   const createGroupBorrowing = useCreateGroupBorrowing();
   const returnGroupBorrowing = useReturnGroupBorrowing();
   const { updatePageState } = useDocumentMetaContext();
-  const { data: classes } = useClasses();
+  const { data: classes } = useClassesOffline();
   const { data: studentsResponse } = useStudents();
   const students = Array.isArray(studentsResponse?.students) ? studentsResponse.students : [];
   const { data: theftReports } = useTheftReports();
@@ -252,7 +255,7 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
   
   // Show all fines from both sources: fines table and borrowings with fines
   const finesData = allFines || [];
-  const borrowingsWithFines = borrowings?.filter(b => b.fine_amount && b.fine_amount > 0 && !b.fine_paid) || [];
+  const borrowingsWithFines = borrowings?.filter(b => b.fine_amount && b.fine_amount > 0 && !(b as any).fine_paid) || [];
   
   // Create combined fines data including borrowings with fines
   const combinedFinesData = [...finesData];
@@ -263,7 +266,7 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
     const alreadyIncluded = finesData.some(fine => 
       fine.borrowing_id === borrowing.id && 
       ((borrowing.student_id && fine.student_id === borrowing.student_id) ||
-       (borrowing.staff_id && fine.staff_id === borrowing.staff_id))
+       ((borrowing as any).staff_id && fine.staff_id === (borrowing as any).staff_id))
     );
     
     // If not already included, add it to the combined data
@@ -284,31 +287,31 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
         // Use a special ID format that we can detect in handleFineAction
         id: `borrowing-${borrowing.id}`,
         student_id: borrowing.student_id || null,
-        staff_id: borrowing.staff_id || null,
+        staff_id: (borrowing as any).staff_id || null,
         borrowing_id: borrowing.id,
         amount: borrowing.fine_amount,
-        fine_type: borrowing.is_lost ? 'lost_book' : 'overdue',
-        description: `Fine for ${borrowing.is_lost ? 'lost' : 'overdue'} book: ${borrowing.books?.title}`,
+        fine_type: (borrowing as any).is_lost ? 'lost_book' : 'overdue',
+        description: `Fine for ${(borrowing as any).is_lost ? 'lost' : 'overdue'} book: ${(borrowing as any).books?.title}`,
         status: 'unpaid',
         created_at: borrowing.updated_at || borrowing.created_at,
         updated_at: borrowing.updated_at || borrowing.created_at,
         borrower_type: borrowing.student_id ? 'student' : 'staff',
         created_by: null,
         // Include the original borrowing data for reference
-        students: borrowing.students || null,
-        staff: borrowing.staff ? 
-          { ...borrowing.staff, email: '' } as StaffWithEmail : 
+        students: (borrowing as any).students || null,
+        staff: (borrowing as any).staff ? 
+          { ...(borrowing as any).staff, email: '' } as StaffWithEmail : 
           null,
         // Include dummy values for other required fields
         borrowings: {
           id: borrowing.id,
           book_id: borrowing.book_id,
           student_id: borrowing.student_id,
-          staff_id: borrowing.staff_id,
-          books: borrowing.books,
-          students: borrowing.students,
-          staff: borrowing.staff ? 
-            { ...borrowing.staff, email: '' } as StaffWithEmail : 
+          staff_id: (borrowing as any).staff_id,
+          books: (borrowing as any).books,
+          students: (borrowing as any).students,
+          staff: (borrowing as any).staff ? 
+            { ...(borrowing as any).staff, email: '' } as StaffWithEmail : 
             null
         }
       });
@@ -342,10 +345,10 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
 
   // Filter active borrowings based on search with priority for admission number
   const filteredActiveBorrowings = activeBorrowings.filter(borrowing => {
-    const admissionNumber = borrowing.students?.admission_number?.toLowerCase() || '';
-    const studentName = `${borrowing.students?.first_name} ${borrowing.students?.last_name}`.toLowerCase();
-    const bookTitle = borrowing.books?.title?.toLowerCase() || '';
-    const classGrade = borrowing.students?.class_grade?.toLowerCase() || '';
+    const admissionNumber = (borrowing as any).students?.admission_number?.toLowerCase() || '';
+    const studentName = `${(borrowing as any).students?.first_name} ${(borrowing as any).students?.last_name}`.toLowerCase();
+    const bookTitle = (borrowing as any).books?.title?.toLowerCase() || '';
+    const classGrade = (borrowing as any).students?.class_grade?.toLowerCase() || '';
     const search = searchQuery.toLowerCase();
 
     return admissionNumber.includes(search) ||
@@ -355,8 +358,8 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
   }).sort((a, b) => {
     // Prioritize exact admission number matches first
     const search = searchQuery.toLowerCase();
-    const aAdmissionMatch = (a.students?.admission_number?.toLowerCase() || '').startsWith(search);
-    const bAdmissionMatch = (b.students?.admission_number?.toLowerCase() || '').startsWith(search);
+    const aAdmissionMatch = ((a as any).students?.admission_number?.toLowerCase() || '').startsWith(search);
+    const bAdmissionMatch = ((b as any).students?.admission_number?.toLowerCase() || '').startsWith(search);
     if (aAdmissionMatch && !bAdmissionMatch) return -1;
     if (!aAdmissionMatch && bAdmissionMatch) return 1;
     return 0;
@@ -375,8 +378,8 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
   };
 
   // Paginated data for each tab
-  const paginatedActiveBorrowings = getPaginatedData(filteredActiveBorrowings.filter(b => b.borrower_type === 'student' || !b.borrower_type), activePage);
-  const paginatedStaffBorrowings = getPaginatedData(filteredActiveBorrowings.filter(b => b.borrower_type === 'staff'), staffPage);
+  const paginatedActiveBorrowings = getPaginatedData(filteredActiveBorrowings.filter(b => (b as any).borrower_type === 'student' || !(b as any).borrower_type), activePage);
+  const paginatedStaffBorrowings = getPaginatedData(filteredActiveBorrowings.filter(b => (b as any).borrower_type === 'staff'), staffPage);
   const paginatedGroupBorrowings = getPaginatedData(groupBorrowings || [], groupsPage);
   const paginatedOverdueBorrowings = getPaginatedData(overdueBorrowings || [], overduePage);
   const paginatedReturns = getPaginatedData(recentReturns, returnsPage);
@@ -419,7 +422,7 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
     setSelectedBorrowing(borrowing);
     setShowReturnForm(true);
     // Update document meta when opening return form
-    updatePageState('idle', `Returning Book: ${borrowing.books?.title}`);
+    updatePageState('idle', `Returning Book: ${(borrowing as any).books?.title}`);
   };
 
   const handleReturnSubmit = async (returnData: any) => {
@@ -612,7 +615,7 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
               // Determine the appropriate fine type based on condition
               let fineType = 'overdue';
               
-              if (borrowing.is_lost) {
+              if ((borrowing as any).is_lost) {
                 fineType = 'lost_book';
               } else if (borrowing.condition_at_return === 'damaged') {
                 fineType = 'damaged';
@@ -624,7 +627,7 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
                 fineType = 'late_return';
               }
               
-              const description = `Fine collected for ${borrowing.books?.title}: ${borrowing.condition_at_return || 'overdue'} condition`;
+              const description = `Fine collected for ${(borrowing as any).books?.title}: ${borrowing.condition_at_return || 'overdue'} condition`;
               
               const { error: insertError } = await supabase
                 .from('fines')
@@ -830,8 +833,8 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
           <div className="flex items-center gap-2">
             <BookOpen className="h-4 w-4 text-gray-500" />
             <div>
-              <p className="font-medium">{borrowing.books?.title}</p>
-              <p className="text-xs text-gray-500">by {borrowing.books?.author}</p>
+              <p className="font-medium">{(borrowing as any).books?.title}</p>
+              <p className="text-xs text-gray-500">by {(borrowing as any).books?.author}</p>
               {isGroup && (
                 <Badge variant="outline" className="mt-1 bg-blue-50 text-blue-700 border-blue-200">
                   <Users className="h-3 w-3 mr-1" />
@@ -843,14 +846,14 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
         </TableCell>
         <TableCell>
           <div>
-            <p className="font-medium">{borrowing.students?.first_name} {borrowing.students?.last_name}</p>
-            <p className="text-xs text-gray-500">{borrowing.students?.admission_number} • {borrowing.students?.class_grade}</p>
+            <p className="font-medium">{(borrowing as any).students?.first_name} {(borrowing as any).students?.last_name}</p>
+            <p className="text-xs text-gray-500">{(borrowing as any).students?.admission_number} • {(borrowing as any).students?.class_grade}</p>
           </div>
         </TableCell>
         <TableCell>
           <div>
-            <p className="font-medium">{borrowing.books?.title}</p>
-            <p className="text-xs text-gray-500">by {borrowing.books?.author}</p>
+            <p className="font-medium">{(borrowing as any).books?.title}</p>
+            <p className="text-xs text-gray-500">by {(borrowing as any).books?.author}</p>
             {borrowing.tracking_code && (
               <p className="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded w-fit">
                 {borrowing.tracking_code}
@@ -1286,7 +1289,7 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
               </TableBody>
             </Table>
           </div>
-          {!borrowingsLoading && renderPagination(activePage, getTotalPages(filteredActiveBorrowings.filter(b => b.borrower_type === 'student' || !b.borrower_type).length), setActivePage)}
+          {!borrowingsLoading && renderPagination(activePage, getTotalPages(filteredActiveBorrowings.filter(b => (b as any).borrower_type === 'student' || !(b as any).borrower_type).length), setActivePage)}
         </TabsContent>
 
         {/* Staff Borrowings Tab */}
@@ -1314,7 +1317,7 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
               </TableBody>
             </Table>
           </div>
-          {!borrowingsLoading && renderPagination(staffPage, getTotalPages(filteredActiveBorrowings.filter(b => b.borrower_type === 'staff').length), setStaffPage)}
+          {!borrowingsLoading && renderPagination(staffPage, getTotalPages(filteredActiveBorrowings.filter(b => (b as any).borrower_type === 'staff').length), setStaffPage)}
         </TabsContent>
 
         {/* Group Borrowings Tab */}
@@ -1356,15 +1359,15 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
                           </div>
                         </TableCell>
                         <TableCell>
-                          {borrowing.borrower_type === 'staff' ? (
+                          {(borrowing as any).borrower_type === 'staff' ? (
                             <div>
-                              <p className="font-medium">{borrowing.staff?.first_name} {borrowing.staff?.last_name}</p>
-                              <p className="text-xs text-gray-500">{borrowing.staff?.staff_id} • {borrowing.staff?.department}</p>
+                              <p className="font-medium">{(borrowing as any).staff?.first_name} {(borrowing as any).staff?.last_name}</p>
+                              <p className="text-xs text-gray-500">{(borrowing as any).staff?.staff_id} • {(borrowing as any).staff?.department}</p>
                             </div>
                           ) : (
                             <div>
-                              <p className="font-medium">{borrowing.students?.first_name} {borrowing.students?.last_name}</p>
-                              <p className="text-xs text-gray-500">{borrowing.students?.admission_number} • {borrowing.students?.class_grade}</p>
+                              <p className="font-medium">{(borrowing as any).students?.first_name} {(borrowing as any).students?.last_name}</p>
+                              <p className="text-xs text-gray-500">{(borrowing as any).students?.admission_number} • {(borrowing as any).students?.class_grade}</p>
                             </div>
                           )}
                         </TableCell>
@@ -1440,15 +1443,15 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
                         </div>
                       </TableCell>
                       <TableCell>
-                        {borrowing.borrower_type === 'staff' ? (
+                        {(borrowing as any).borrower_type === 'staff' ? (
                           <div>
-                            <p className="font-medium">{borrowing.staff?.first_name} {borrowing.staff?.last_name}</p>
-                            <p className="text-xs text-gray-500">{borrowing.staff?.staff_id} • {borrowing.staff?.department}</p>
+                            <p className="font-medium">{(borrowing as any).staff?.first_name} {(borrowing as any).staff?.last_name}</p>
+                            <p className="text-xs text-gray-500">{(borrowing as any).staff?.staff_id} • {(borrowing as any).staff?.department}</p>
                           </div>
                         ) : (
                           <div>
-                            <p className="font-medium">{borrowing.students?.first_name} {borrowing.students?.last_name}</p>
-                            <p className="text-xs text-gray-500">{borrowing.students?.admission_number} • {borrowing.students?.class_grade}</p>
+                            <p className="font-medium">{(borrowing as any).students?.first_name} {(borrowing as any).students?.last_name}</p>
+                            <p className="text-xs text-gray-500">{(borrowing as any).students?.admission_number} • {(borrowing as any).students?.class_grade}</p>
                           </div>
                         )}
                       </TableCell>

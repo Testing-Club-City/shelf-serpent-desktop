@@ -1,9 +1,10 @@
 // @ts-ignore - Tauri types will be available at runtime
-import { invoke } from '@tauri-apps/api/tauri';
+import { invoke } from '@tauri-apps/api/core';
 import type { 
   Book, 
   BookWithDetails, 
   Category, 
+  Class,
   Student, 
   Staff,
   Borrowing,
@@ -75,6 +76,70 @@ export class OfflineDataService {
       return await invoke('create_category', { categoryData });
     } catch (error) {
       console.error('Failed to create category:', error);
+      throw error;
+    }
+  }
+
+  static async updateCategory(categoryId: string, categoryData: any): Promise<void> {
+    try {
+      await invoke('update_category', { categoryId, categoryData });
+    } catch (error) {
+      console.error('Failed to update category:', error);
+      throw error;
+    }
+  }
+
+  static async deleteCategory(categoryId: string): Promise<void> {
+    try {
+      await invoke('delete_category', { categoryId });
+    } catch (error) {
+      console.error('Failed to delete category:', error);
+      throw error;
+    }
+  }
+
+  // Classes
+  static async getClasses(): Promise<Class[]> {
+    try {
+      return await invoke('get_classes');
+    } catch (error) {
+      console.error('Failed to get classes:', error);
+      throw error;
+    }
+  }
+
+  static async createClass(classData: any): Promise<string> {
+    try {
+      return await invoke('create_class', { classData });
+    } catch (error) {
+      console.error('Failed to create class:', error);
+      throw error;
+    }
+  }
+
+  static async updateClass(classId: string, classData: any): Promise<void> {
+    try {
+      await invoke('update_class', { classId, classData });
+    } catch (error) {
+      console.error('Failed to update class:', error);
+      throw error;
+    }
+  }
+
+  static async deleteClass(classId: string): Promise<void> {
+    try {
+      await invoke('delete_class', { classId });
+    } catch (error) {
+      console.error('Failed to delete class:', error);
+      throw error;
+    }
+  }
+
+  static async upsertClass(classData: any): Promise<void> {
+    try {
+      await invoke('upsert_class', { classData });
+    } catch (error) {
+      console.error('Failed to upsert class:', error);
       throw error;
     }
   }
@@ -187,6 +252,52 @@ export class OfflineDataService {
       await invoke('return_book', { borrowingId, returnData });
     } catch (error) {
       console.error('Failed to return book:', error);
+      throw error;
+    }
+  }
+
+  // Group Borrowings
+  static async getGroupBorrowings(): Promise<any[]> {
+    try {
+      return await invoke('get_group_borrowings');
+    } catch (error) {
+      console.error('Failed to get group borrowings:', error);
+      throw error;
+    }
+  }
+
+  static async createGroupBorrowing(groupBorrowingData: any): Promise<string> {
+    try {
+      return await invoke('create_group_borrowing', { groupBorrowingData });
+    } catch (error) {
+      console.error('Failed to create group borrowing:', error);
+      throw error;
+    }
+  }
+
+  static async updateGroupBorrowing(groupBorrowingId: string, groupBorrowingData: any): Promise<void> {
+    try {
+      await invoke('update_group_borrowing', { groupBorrowingId, groupBorrowingData });
+    } catch (error) {
+      console.error('Failed to update group borrowing:', error);
+      throw error;
+    }
+  }
+
+  static async returnGroupBorrowing(groupBorrowingId: string, returnData: any): Promise<void> {
+    try {
+      await invoke('return_group_borrowing', { groupBorrowingId, returnData });
+    } catch (error) {
+      console.error('Failed to return group borrowing:', error);
+      throw error;
+    }
+  }
+
+  static async upsertGroupBorrowing(groupBorrowingData: any): Promise<void> {
+    try {
+      await invoke('upsert_group_borrowing', { groupBorrowingData });
+    } catch (error) {
+      console.error('Failed to upsert group borrowing:', error);
       throw error;
     }
   }

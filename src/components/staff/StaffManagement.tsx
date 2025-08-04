@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, Plus, Users, Eye, Edit, Trash2, Building, UserCheck, ArrowUpDown } from 'lucide-react';
-import { useStaff, useCreateStaff, useUpdateStaff, useDeleteStaff, useStaffStats } from '@/hooks/useStaff';
+import { useStaffOffline, useCreateStaffOffline, useUpdateStaffOffline, useDeleteStaffOffline } from '@/hooks/useStaffOffline';
 import { StaffForm } from './StaffForm';
 import { StaffDetails } from './StaffDetails';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -37,12 +37,11 @@ export const StaffManagement = ({ searchTerm = '', openAddStaffForm = false }: S
   const [sortField, setSortField] = useState<string>('first_name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  const { data: staff, isLoading } = useStaff();
-  const { data: staffStats } = useStaffStats();
-  
-  const createStaffMutation = useCreateStaff();
-  const updateStaffMutation = useUpdateStaff();
-  const deleteStaffMutation = useDeleteStaff();
+  // Use offline-first hooks for better performance and offline capability
+  const { data: staff, isLoading } = useStaffOffline();
+  const createStaffMutation = useCreateStaffOffline();
+  const updateStaffMutation = useUpdateStaffOffline();
+  const deleteStaffMutation = useDeleteStaffOffline();
 
   // Use external search term when provided
   useEffect(() => {
@@ -65,9 +64,10 @@ export const StaffManagement = ({ searchTerm = '', openAddStaffForm = false }: S
 
   const effectiveSearchTerm = searchTerm || localSearchTerm;
 
-  const activeStaff = staffStats?.active || 0;
-  const inactiveStaff = staffStats?.inactive || 0;
-  const totalStaff = staffStats?.total || staff?.length || 0;
+  // Calculate stats from local data
+  const activeStaff = staff?.filter(s => (s as any).status === 'active').length || 0;
+  const inactiveStaff = staff?.filter(s => (s as any).status !== 'active').length || 0;
+  const totalStaff = staff?.length || 0;
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -84,9 +84,9 @@ export const StaffManagement = ({ searchTerm = '', openAddStaffForm = false }: S
       staffMember.last_name.toLowerCase().includes(effectiveSearchTerm.toLowerCase()) ||
       staffMember.staff_id.toLowerCase().includes(effectiveSearchTerm.toLowerCase()) ||
       staffMember.department?.toLowerCase().includes(effectiveSearchTerm.toLowerCase()) ||
-      staffMember.position?.toLowerCase().includes(effectiveSearchTerm.toLowerCase());
+      (staffMember as any).position?.toLowerCase().includes(effectiveSearchTerm.toLowerCase());
     
-    const matchesStatus = selectedStatus === 'all' || staffMember.status === selectedStatus;
+    const matchesStatus = selectedStatus === 'all' || (staffMember as any).status === selectedStatus;
     
     return matchesSearch && matchesStatus;
   }) || [];
@@ -137,13 +137,24 @@ export const StaffManagement = ({ searchTerm = '', openAddStaffForm = false }: S
 
   const handleUpdateStaff = async (staffData: any) => {
     if (editingStaff) {
-      await updateStaffMutation.mutateAsync({ id: editingStaff.id, ...staffData });
-      setEditingStaff(null);
+      try {
+        await updateStaffMutation.mutateAsync({ 
+          staffId: editingStaff.id, 
+          staffData: staffData 
+        });
+        setEditingStaff(null);
+      } catch (error) {
+        console.error('Failed to update staff:', error);
+      }
     }
   };
 
   const handleDeleteStaff = async (staffId: string) => {
-    await deleteStaffMutation.mutateAsync(staffId);
+    try {
+      await deleteStaffMutation.mutateAsync(staffId);
+    } catch (error) {
+      console.error('Failed to delete staff:', error);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -413,10 +424,10 @@ export const StaffManagement = ({ searchTerm = '', openAddStaffForm = false }: S
                             <span className="text-gray-700">{staffMember.department || 'N/A'}</span>
                           </div>
                         </td>
-                        <td className="py-4 px-4 text-gray-700">{staffMember.position || 'N/A'}</td>
+                        <td className="py-4 px-4 text-gray-700">{(staffMember as any).position || 'N/A'}</td>
                         <td className="py-4 px-4">
-                          <Badge className={getStatusColor(staffMember.status || 'active')}>
-                            {staffMember.status || 'Active'}
+                          <Badge className={getStatusColor((staffMember as any).status || 'active')}>
+                            {(staffMember as any).status || 'Active'}
                           </Badge>
                         </td>
                         <td className="py-4 px-4 text-right">

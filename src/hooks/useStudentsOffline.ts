@@ -49,6 +49,44 @@ class StudentsDataService {
     }
   }
 
+  async updateStudent(studentId: string, studentData: Partial<Student>): Promise<void> {
+    try {
+      await offlineDataService.updateStudent(studentId, studentData);
+      
+      if (this.isOnline) {
+        try {
+          await this.updateStudentInSupabase(studentId, studentData);
+        } catch (syncError) {
+          console.error('Failed to sync student update to Supabase:', syncError);
+        }
+      }
+    } catch (error) {
+      if (this.isOnline) {
+        return this.updateStudentInSupabase(studentId, studentData);
+      }
+      throw error;
+    }
+  }
+
+  async deleteStudent(studentId: string): Promise<void> {
+    try {
+      await offlineDataService.deleteStudent(studentId);
+      
+      if (this.isOnline) {
+        try {
+          await this.deleteStudentInSupabase(studentId);
+        } catch (syncError) {
+          console.error('Failed to sync student deletion to Supabase:', syncError);
+        }
+      }
+    } catch (error) {
+      if (this.isOnline) {
+        return this.deleteStudentInSupabase(studentId);
+      }
+      throw error;
+    }
+  }
+
   private async syncStudentsInBackground(): Promise<void> {
     console.log('Syncing students in background...');
   }
@@ -56,6 +94,16 @@ class StudentsDataService {
   private async getStudentsFromSupabase(): Promise<Student[]> {
     console.log('Loading students from Supabase...');
     return [];
+  }
+
+  private async updateStudentInSupabase(studentId: string, studentData: Partial<Student>): Promise<void> {
+    console.log('Syncing student update to Supabase...');
+    // TODO: Implement Supabase update logic
+  }
+
+  private async deleteStudentInSupabase(studentId: string): Promise<void> {
+    console.log('Syncing student deletion to Supabase...');
+    // TODO: Implement Supabase delete logic
   }
 
   private async createStudentInSupabase(studentData: any): Promise<string> {
@@ -105,6 +153,60 @@ export const useCreateStudentOffline = () => {
     onError: (error) => {
       toast({
         title: "Failed to create student",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive",
+      });
+    },
+  });
+};
+
+export const useUpdateStudentOffline = () => {
+  const { toast } = useToast();
+  const connectivity = useConnectivity();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ studentId, studentData }: { studentId: string, studentData: Partial<Student> }) => {
+      const service = new StudentsDataService(connectivity.isOnline);
+      return await service.updateStudent(studentId, studentData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['students', 'offline-first'] });
+      toast({
+        title: "Success",
+        description: "Student updated successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to update student",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive",
+      });
+    },
+  });
+};
+
+export const useDeleteStudentOffline = () => {
+  const { toast } = useToast();
+  const connectivity = useConnectivity();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (studentId: string) => {
+      const service = new StudentsDataService(connectivity.isOnline);
+      return await service.deleteStudent(studentId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['students', 'offline-first'] });
+      toast({
+        title: "Success",
+        description: "Student deleted successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to delete student",
         description: error instanceof Error ? error.message : "Unknown error occurred",
         variant: "destructive",
       });
