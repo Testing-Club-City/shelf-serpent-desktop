@@ -2,11 +2,11 @@
 import { useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { useOfflineAuth } from '@/hooks/useOfflineAuth';
 
 export const useUserPresence = () => {
   const queryClient = useQueryClient();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated } = useOfflineAuth();
 
   const updatePresence = useCallback(async () => {
     if (!isAuthenticated) return;

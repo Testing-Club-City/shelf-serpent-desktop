@@ -10,10 +10,7 @@ CREATE TABLE IF NOT EXISTS categories (
     name TEXT NOT NULL UNIQUE,
     description TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-    synced INTEGER DEFAULT 0,
-    sync_version INTEGER DEFAULT 1,
-    deleted INTEGER DEFAULT 0
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 -- Books Table
@@ -31,7 +28,7 @@ CREATE TABLE IF NOT EXISTS books (
     cover_image_url TEXT,
     description TEXT,
     status TEXT DEFAULT 'available' CHECK (status IN ('available', 'unavailable', 'damaged', 'lost')),
-    category_id TEXT REFERENCES categories(id),
+    category_id TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     condition TEXT CHECK (condition IN ('excellent', 'good', 'fair', 'damaged', 'lost', 'stolen')),
@@ -44,9 +41,8 @@ CREATE TABLE IF NOT EXISTS books (
     deleted INTEGER DEFAULT 0
 );
 
--- Book Copies Table
 CREATE TABLE IF NOT EXISTS book_copies (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY, -- UUID as TEXT
     book_id TEXT REFERENCES books(id),
     copy_number INTEGER NOT NULL,
     book_code TEXT NOT NULL,
@@ -93,7 +89,7 @@ CREATE TABLE IF NOT EXISTS students (
     status TEXT DEFAULT 'active',
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-    class_id TEXT REFERENCES classes(id),
+    class_id TEXT,
     academic_year TEXT DEFAULT '2024/2025',
     is_repeating INTEGER DEFAULT 0,
     legacy_student_id INTEGER UNIQUE,
@@ -124,8 +120,8 @@ CREATE TABLE IF NOT EXISTS staff (
 -- Borrowings Table
 CREATE TABLE IF NOT EXISTS borrowings (
     id TEXT PRIMARY KEY,
-    student_id TEXT REFERENCES students(id),
-    book_id TEXT REFERENCES books(id),
+    student_id TEXT,
+    book_id TEXT,
     borrowed_date TEXT DEFAULT (date('now')),
     due_date TEXT NOT NULL,
     returned_date TEXT,
@@ -137,7 +133,7 @@ CREATE TABLE IF NOT EXISTS borrowings (
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     fine_paid INTEGER DEFAULT 0,
-    book_copy_id TEXT REFERENCES book_copies(id),
+    book_copy_id TEXT,
     condition_at_issue TEXT DEFAULT 'good',
     condition_at_return TEXT,
     is_lost INTEGER DEFAULT 0,
@@ -155,8 +151,8 @@ CREATE TABLE IF NOT EXISTS borrowings (
 -- Group Borrowings Table
 CREATE TABLE IF NOT EXISTS group_borrowings (
     id TEXT PRIMARY KEY,
-    book_id TEXT REFERENCES books(id) NOT NULL,
-    book_copy_id TEXT REFERENCES book_copies(id),
+    book_id TEXT,
+    book_copy_id TEXT,
     tracking_code TEXT,
     borrowed_date TEXT DEFAULT (date('now')),
     due_date TEXT NOT NULL,
@@ -174,17 +170,14 @@ CREATE TABLE IF NOT EXISTS group_borrowings (
     returned_by TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-    student_ids TEXT DEFAULT '[]', -- JSON array as text
-    synced INTEGER DEFAULT 0,
-    sync_version INTEGER DEFAULT 1,
-    deleted INTEGER DEFAULT 0
+    student_ids TEXT DEFAULT '[]' -- JSON array as text
 );
 
 -- Fines Table
 CREATE TABLE IF NOT EXISTS fines (
     id TEXT PRIMARY KEY,
-    student_id TEXT REFERENCES students(id),
-    borrowing_id TEXT REFERENCES borrowings(id),
+    student_id TEXT,
+    borrowing_id TEXT,
     fine_type TEXT NOT NULL CHECK (fine_type IN ('overdue', 'damaged', 'lost', 'lost_book', 'late_return', 'damage')),
     amount REAL DEFAULT 0 NOT NULL,
     description TEXT,
@@ -206,19 +199,16 @@ CREATE TABLE IF NOT EXISTS fine_settings (
     amount REAL DEFAULT 0 NOT NULL,
     description TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-    synced INTEGER DEFAULT 0,
-    sync_version INTEGER DEFAULT 1,
-    deleted INTEGER DEFAULT 0
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 -- Theft Reports Table
 CREATE TABLE IF NOT EXISTS theft_reports (
     id TEXT PRIMARY KEY,
-    student_id TEXT REFERENCES students(id) NOT NULL,
-    book_id TEXT REFERENCES books(id) NOT NULL,
-    book_copy_id TEXT REFERENCES book_copies(id) NOT NULL,
-    borrowing_id TEXT REFERENCES borrowings(id) NOT NULL,
+    student_id TEXT,
+    book_id TEXT,
+    book_copy_id TEXT,
+    borrowing_id TEXT,
     expected_tracking_code TEXT NOT NULL,
     returned_tracking_code TEXT NOT NULL,
     theft_reason TEXT,
@@ -229,10 +219,25 @@ CREATE TABLE IF NOT EXISTS theft_reports (
     resolved_date TEXT,
     resolved_by TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- User Sessions Table for Offline Authentication
+CREATE TABLE IF NOT EXISTS user_sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    email TEXT NOT NULL,
+    access_token TEXT NOT NULL,
+    refresh_token TEXT,
+    expires_at TEXT NOT NULL,
+    user_metadata TEXT, -- JSON blob for user profile data
+    role TEXT DEFAULT 'user',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-    synced INTEGER DEFAULT 0,
-    sync_version INTEGER DEFAULT 1,
-    deleted INTEGER DEFAULT 0
+    last_activity TEXT NOT NULL DEFAULT (datetime('now')),
+    session_valid INTEGER DEFAULT 1, -- 0 = invalid, 1 = valid
+    offline_expiry TEXT NOT NULL, -- Extended expiry for offline use
+    device_fingerprint TEXT
 );
 
 -- Sync Management Tables
@@ -299,6 +304,13 @@ CREATE INDEX IF NOT EXISTS idx_fines_sync ON fines(synced, sync_version);
 CREATE INDEX IF NOT EXISTS idx_sync_log_table ON sync_log(table_name);
 CREATE INDEX IF NOT EXISTS idx_sync_log_synced ON sync_log(synced);
 CREATE INDEX IF NOT EXISTS idx_sync_log_timestamp ON sync_log(timestamp);
+
+-- User Sessions Indexes
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_email ON user_sessions(email);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_expires ON user_sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_offline_expiry ON user_sessions(offline_expiry);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_valid ON user_sessions(session_valid);
 
 -- Triggers for automatic updated_at timestamps
 CREATE TRIGGER IF NOT EXISTS update_categories_timestamp 

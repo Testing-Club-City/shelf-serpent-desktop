@@ -1,13 +1,13 @@
 
 import { Login } from '@/components/auth/Login';
 import { Dashboard } from '@/components/dashboard/Dashboard';
-import { useAuth } from '@/hooks/useAuth';
+import { useOfflineAuth } from '@/hooks/useOfflineAuth';
 import { useSystemSettings, getSchoolNameFromSettings } from '@/hooks/useSystemSettings';
 import { BookOpen } from 'lucide-react';
 import { useEffect } from 'react';
 
 const Index = () => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading } = useOfflineAuth();
   const { data: systemSettings, isLoading: settingsLoading, refetch: refetchSettings } = useSystemSettings();
   
   // Only get school name if authenticated and settings are available

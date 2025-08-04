@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Bell, User, Settings, LogOut, Moon, Sun } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { useOfflineAuth } from '@/hooks/useOfflineAuth';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useSystemSettings, getSchoolNameFromSettings } from '@/hooks/useSystemSettings';
 import { ProfileForm } from '@/components/profile/ProfileForm';
@@ -14,7 +14,7 @@ import { NotificationPanel } from '@/components/notifications/NotificationPanel'
 import { useTheme } from 'next-themes';
 
 export const Header = () => {
-  const { user, logout } = useAuth();
+  const { user, logout } = useOfflineAuth();
   const { data: notifications } = useNotifications();
   const { data: systemSettings, isLoading: settingsLoading } = useSystemSettings();
   const { theme, setTheme } = useTheme();

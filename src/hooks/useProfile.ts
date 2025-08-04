@@ -1,10 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
+import { useOfflineAuth } from '@/hooks/useOfflineAuth';
 
 export const useProfile = () => {
-  const { user } = useAuth();
+  const { user } = useOfflineAuth();
   
   return useQuery({
     queryKey: ['profile', user?.id],
@@ -69,7 +69,7 @@ export const useProfile = () => {
 export const useUpdateProfile = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user } = useOfflineAuth();
 
   return useMutation({
     mutationFn: async (updates: any) => {

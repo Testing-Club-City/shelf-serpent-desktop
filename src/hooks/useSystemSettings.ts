@@ -1,7 +1,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { useOfflineAuth } from '@/hooks/useOfflineAuth';
 import React from 'react';
 
 export interface SystemSetting {
@@ -14,7 +14,7 @@ export interface SystemSetting {
 }
 
 export const useSystemSettings = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated } = useOfflineAuth();
   
   const queryClient = useQueryClient();
   
@@ -24,10 +24,17 @@ export const useSystemSettings = () => {
       console.log('Fetching system settings...');
       
       try {
+        // Add timeout to prevent hanging
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+        
         const { data, error } = await supabase
           .from('system_settings')
           .select('*')
-          .order('setting_key');
+          .order('setting_key')
+          .abortSignal(controller.signal);
+
+        clearTimeout(timeoutId);
 
         if (error) {
           console.error('System settings error:', error);
@@ -46,18 +53,29 @@ export const useSystemSettings = () => {
         return settings;
       } catch (error) {
         console.error('Error fetching system settings:', error);
-        // Return empty array on error to prevent auth issues on public pages
-        return [];
+        // Return default settings to prevent hanging
+        return [
+          {
+            id: 'default-1',
+            setting_key: 'school_name',
+            setting_value: 'Library Management System',
+            description: 'Default school name',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        ];
       }
     },
     // Add stale time and refetch options
     staleTime: 5 * 60 * 1000, // 5 minutes
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
+    refetchOnWindowFocus: false, // Reduce unnecessary refetches
+    refetchOnMount: false, // Don't refetch on mount for faster loading
     refetchOnReconnect: true,
     // Always enable the query - system settings like school name should be available even on login page
     enabled: true,
-    refetchInterval: 30000,
+    refetchInterval: false, // Disable automatic refetching
+    retry: 1, // Only retry once
+    retryDelay: 1000, // 1 second delay between retries
   });
 
   // Add a function to manually refetch settings

@@ -16,7 +16,6 @@ import {
   HardDrive
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { invoke } from '@tauri-apps/api/core';
 
 interface ConnectionStatusData {
   is_online: boolean;
@@ -41,7 +40,7 @@ interface ConnectionStatusProps {
 
 export function ConnectionStatus({ className, showDetails = true }: ConnectionStatusProps) {
   const [status, setStatus] = useState<ConnectionStatusData>({
-    is_online: false,
+    is_online: navigator.onLine,
     is_syncing: false,
     pending_operations: 0,
     initial_sync_completed: false,
@@ -54,26 +53,52 @@ export function ConnectionStatus({ className, showDetails = true }: ConnectionSt
     has_data: false,
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [isTauriAvailable, setIsTauriAvailable] = useState(false);
 
   const loadStatus = async () => {
     try {
-      const [statusData, dataCount] = await Promise.all([
-        invoke<ConnectionStatusData>('get_connection_status'),
-        invoke<LocalDataCount>('check_local_data_count')
-      ]);
-      setStatus(statusData);
-      setLocalData(dataCount);
+      // Check if Tauri API is available
+      const hasTauri = typeof window !== 'undefined' && !!(window as any).__TAURI__;
+      setIsTauriAvailable(hasTauri);
+
+      if (hasTauri) {
+        const { invoke } = await import('@tauri-apps/api/core');
+        
+        try {
+          const [statusData, dataCount] = await Promise.all([
+            invoke<ConnectionStatusData>('get_connection_status'),
+            invoke<LocalDataCount>('check_local_data_count')
+          ]);
+          setStatus(statusData);
+          setLocalData(dataCount);
+        } catch (invokeError) {
+          console.warn('Tauri commands failed, using browser fallback:', invokeError);
+          setStatus(prev => ({ ...prev, is_online: navigator.onLine }));
+          setLocalData({ books_count: 0, students_count: 0, categories_count: 0, has_data: false });
+        }
+      } else {
+        // Fallback to browser-based detection
+        setStatus(prev => ({ ...prev, is_online: navigator.onLine }));
+        setLocalData({ books_count: 0, students_count: 0, categories_count: 0, has_data: false });
+      }
       setIsLoading(false);
     } catch (error) {
       console.error('Failed to load connection status:', error);
+      // Final fallback to browser detection
+      setStatus(prev => ({ ...prev, is_online: navigator.onLine }));
       setIsLoading(false);
     }
   };
 
   const handleSync = async () => {
     try {
-      await invoke('initial_data_pull');
-      loadStatus(); // Refresh status after sync
+      if (isTauriAvailable) {
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('initial_data_pull');
+      } else {
+        console.log('Sync not available in browser mode');
+      }
+      loadStatus();
     } catch (error) {
       console.error('Failed to trigger sync:', error);
     }
@@ -82,8 +107,11 @@ export function ConnectionStatus({ className, showDetails = true }: ConnectionSt
   const handleCheckConnectivity = async () => {
     try {
       setIsLoading(true);
-      await invoke('force_connectivity_refresh');
-      await loadStatus(); // Refresh status after connectivity check
+      if (isTauriAvailable) {
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('force_connectivity_refresh');
+      }
+      await loadStatus();
     } catch (error) {
       console.error('Failed to check connectivity:', error);
     } finally {
@@ -94,11 +122,47 @@ export function ConnectionStatus({ className, showDetails = true }: ConnectionSt
   useEffect(() => {
     loadStatus();
     
-    // Poll for status updates more frequently (every 3 seconds)
-    const interval = setInterval(loadStatus, 3000);
+    // Add browser online/offline event listeners
+    const handleOnline = () => {
+      setStatus(prev => ({ ...prev, is_online: true }));
+      // Automatically trigger sync when going online if no data exists
+      if (!localData.has_data && isTauriAvailable) {
+        console.log('App went online with no local data - triggering automatic sync');
+        handleSync();
+      }
+    };
     
-    return () => clearInterval(interval);
-  }, []);
+    const handleOffline = () => {
+      setStatus(prev => ({ ...prev, is_online: false }));
+    };
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    // Poll for status updates
+    const interval = setInterval(loadStatus, 5000);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [isTauriAvailable, localData.has_data]);
+
+  // Auto-trigger sync when app is online and has no data
+  useEffect(() => {
+    if (status.is_online && !localData.has_data && isTauriAvailable && !status.is_syncing) {
+      console.log('Detected online status with no local data - triggering sync');
+      const autoSync = async () => {
+        try {
+          await handleSync();
+        } catch (error) {
+          console.error('Auto-sync failed:', error);
+        }
+      };
+      autoSync();
+    }
+  }, [status.is_online, localData.has_data, isTauriAvailable, status.is_syncing]);
 
   const getStatusIcon = () => {
     if (isLoading) {
@@ -118,9 +182,13 @@ export function ConnectionStatus({ className, showDetails = true }: ConnectionSt
 
   const getStatusText = () => {
     if (isLoading) return 'Loading...';
-    if (status.is_syncing) return 'Pulling Data...';
+    if (status.is_syncing) return 'Syncing...';
     if (status.is_online) return 'Online';
     return 'Offline';
+  };
+
+  const getModeText = () => {
+    return isTauriAvailable ? 'Tauri' : 'Browser';
   };
 
   const getStatusVariant = (): "default" | "secondary" | "destructive" | "outline" => {
@@ -150,37 +218,47 @@ export function ConnectionStatus({ className, showDetails = true }: ConnectionSt
   }
 
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
-      {/* Main Status */}
-      <div className="flex items-center justify-between">
-        <div className={cn(
-          "flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium border",
-          getStatusClassName()
-        )}>
+    <div className={cn("flex flex-col gap-3 p-4 bg-white rounded-lg border shadow-sm", className)}>
+      {/* Main Status - Stacked Layout for Better Visibility */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-2">
           {getStatusIcon()}
-          {getStatusText()}
+          <div className={cn(
+            "px-3 py-1.5 rounded-full text-sm font-medium border",
+            getStatusClassName()
+          )}>
+            {getStatusText()}
+          </div>
+          {!isTauriAvailable && (
+            <span className="text-xs text-muted-foreground">(Browser Mode)</span>
+          )}
         </div>
         
-        <div className="flex items-center gap-1">
+        {/* Prominent Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-2">
           <Button 
-            variant="ghost" 
-            size="sm" 
+            variant="outline" 
+            size="default" 
             onClick={handleCheckConnectivity}
             disabled={isLoading}
+            className="w-full sm:w-auto h-9 px-4 text-sm font-medium border-slate-300 hover:bg-slate-50 hover:border-slate-400 transition-all"
             title="Check connectivity"
           >
-            <RefreshCw className={cn("h-3 w-3", isLoading && "animate-spin")} />
+            <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
+            {isLoading ? 'Checking...' : 'Check Connection'}
           </Button>
           
           {status.is_online && (
             <Button 
-              variant="ghost" 
-              size="sm" 
+              variant="default" 
+              size="default" 
               onClick={handleSync}
               disabled={status.is_syncing}
-              title="Pull data"
+              className="w-full sm:w-auto h-9 px-4 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white transition-all shadow-md hover:shadow-lg"
+              title="Pull latest data from server"
             >
-              <Download className="h-3 w-3" />
+              <Download className={cn("h-4 w-4 mr-2", status.is_syncing && "animate-pulse")} />
+              {status.is_syncing ? 'Syncing...' : 'Sync Data'}
             </Button>
           )}
         </div>

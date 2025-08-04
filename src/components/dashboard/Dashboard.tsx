@@ -26,10 +26,11 @@ import { StudentDetails } from '@/components/students/StudentDetails';
 import { BookDetails } from '@/components/books/BookDetails';
 import { BorrowingDetails } from '@/components/borrowings/BorrowingDetails';
 import { useProfile } from '@/hooks/useProfile';
-import { useAuth } from '@/hooks/useAuth';
+import { useOfflineAuth } from '@/hooks/useOfflineAuth';
 import { useSystemSettings, getSchoolNameFromSettings } from '@/hooks/useSystemSettings';
 import { GlobalSearchBar } from '@/components/search/GlobalSearchBar';
 import ConnectionStatus from '@/components/ConnectionStatus';
+import { SyncActionBar } from '@/components/SyncActionBar';
 
 export type TabType = 'overview' | 'books' | 'students' | 'staff' | 'borrowing' | 'reports' | 'dashboard' | 'profile' | 'admin';
 
@@ -50,7 +51,7 @@ export const Dashboard = () => {
   const [adminInitialTab, setAdminInitialTab] = useState('overview');
   
   const { data: profile } = useProfile();
-  const { logout } = useAuth();
+  const { logout } = useOfflineAuth();
   const { data: systemSettings, isLoading: settingsLoading, refetch: refetchSettings } = useSystemSettings();
 
   // Get school name from system settings with proper loading handling
@@ -546,6 +547,9 @@ export const Dashboard = () => {
           </div>
         </div>
       </div>
+      
+      {/* Professional Sync Action Bar */}
+      <SyncActionBar />
     </div>
   );
 };

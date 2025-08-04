@@ -2,6 +2,25 @@ use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+// User Session for offline authentication
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserSession {
+    pub id: Uuid,
+    pub user_id: String,
+    pub email: String,
+    pub access_token: String,
+    pub refresh_token: Option<String>,
+    pub expires_at: DateTime<Utc>,
+    pub user_metadata: Option<String>, // JSON blob
+    pub role: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub last_activity: DateTime<Utc>,
+    pub session_valid: bool,
+    pub offline_expiry: DateTime<Utc>, // Extended expiry for offline use (e.g., 7 days)
+    pub device_fingerprint: Option<String>,
+}
+
 // Enum Types
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]

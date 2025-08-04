@@ -230,19 +230,29 @@ export async function setupSync(
   supabaseAnonKey: string,
   serviceRoleKey?: string
 ): Promise<void> {
-  return await invoke('setup_sync', {
-    supabaseUrl,
-    supabaseAnonKey,
-    serviceRoleKey,
+  return await invoke('setup_sync_config', {
+    config: {
+      supabaseUrl,
+      supabaseAnonKey,
+      serviceRoleKey,
+    }
   });
 }
 
 export async function startSync(): Promise<void> {
-  return await invoke('start_sync');
+  return await invoke('trigger_sync');
 }
 
 export async function forceSync(): Promise<void> {
-  return await invoke('force_sync');
+  return await invoke('trigger_sync');
+}
+
+export async function initialDataPull(): Promise<void> {
+  return await invoke('initial_data_pull');
+}
+
+export async function checkLocalDataCount(): Promise<any> {
+  return await invoke('check_local_data_count');
 }
 
 export async function getSyncStatus(): Promise<SyncStatus> {
@@ -250,7 +260,7 @@ export async function getSyncStatus(): Promise<SyncStatus> {
 }
 
 export async function isOnline(): Promise<boolean> {
-  return await invoke('is_online');
+  return await invoke('check_connectivity');
 }
 
 // Utility Functions

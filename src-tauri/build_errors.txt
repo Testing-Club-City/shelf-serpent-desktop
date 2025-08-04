@@ -1,0 +1,65 @@
+﻿cargo :     Checking tauri-app v0.1.0 (C:\Users\Denis 
+Kariuki\Downloads\Compressed\Desktop Application 
+Libarary\Desktop Application 
+Libarary\shelf-serpent-desktop\src-tauri)
+At line:1 char:1
++ cargo check 2>&1 | Out-File -FilePath build_errors.txt 
+-Encoding UTF8
++ ~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (    Checking ta.. 
+   .ktop\src-tauri):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+error: prefix `d` is unknown
+    --> src\sync\mod.rs:1582:80
+     |
+1582 | ...                   .and_then(|s| 
+NaiveDate::parse_from_str(s, "%Y-%m-%d").ok()),
+     |                                                         
+                 ^ unknown prefix
+     |
+     = note: prefixed identifiers and literals are reserved 
+since Rust 2021
+help: consider inserting whitespace here
+     |
+1582 |                             .and_then(|s| 
+NaiveDate::parse_from_str(s, "%Y-%m-%d ").ok()),
+     |                                                         
+                        +
+
+error: prefix `d` is unknown
+    --> src\sync\mod.rs:1584:80
+     |
+1584 | ...                   .and_then(|s| 
+NaiveDate::parse_from_str(s, "%Y-%m-%d").ok())
+     |                                                         
+                 ^ unknown prefix
+     |
+     = note: prefixed identifiers and literals are reserved 
+since Rust 2021
+help: consider inserting whitespace here
+     |
+1584 |                             .and_then(|s| 
+NaiveDate::parse_from_str(s, "%Y-%m-%d ").ok())
+     |                                                         
+                        +
+
+error[E0765]: unterminated double quote string
+    --> src\sync\mod.rs:1656:53
+     |
+1656 |                           updated_at: 
+item["updated_at"].as_str()
+     |  _____________________________________________________^
+1657 | |                             .and_then(|s| 
+DateTime::parse_from_rfc3339(s).ok())
+1658 | |                             .map(|dt| 
+dt.with_timezone(&Utc))
+1659 | |                             .unwrap_or_else(Utc::now),
+...    |
+1686 | | }
+     | |__^
+
+For more information about this error, try `rustc --explain 
+E0765`.
+error: could not compile `tauri-app` (lib) due to 3 previous 
+errors

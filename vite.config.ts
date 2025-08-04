@@ -58,6 +58,13 @@ export default defineConfig(({ mode }) => ({
     target: 'esnext',
     // Ensure WASM files are properly handled
     rollupOptions: {
+      external: [
+        '@tauri-apps/api/core',
+        '@tauri-apps/api/event',
+        '@tauri-apps/api/window',
+        '@tauri-apps/plugin-fs',
+        '@tauri-apps/plugin-shell'
+      ],
       output: {
         manualChunks: {
           'sql-js': ['sql.js']

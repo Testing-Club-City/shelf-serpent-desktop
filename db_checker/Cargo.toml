@@ -1,0 +1,11 @@
+[package]
+name = "db_checker"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "check_db"
+path = "src/main.rs"
+
+[dependencies]
+rusqlite = { version = "0.32", features = ["bundled"] }

@@ -2,7 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
+import { useOfflineAuth } from '@/hooks/useOfflineAuth';
 
 interface Notification {
   id: string;
@@ -16,7 +16,7 @@ interface Notification {
 }
 
 export const useNotifications = () => {
-  const { user } = useAuth();
+  const { user } = useOfflineAuth();
   
   return useQuery({
     queryKey: ['notifications', user?.id],
@@ -68,7 +68,7 @@ export const useMarkNotificationRead = () => {
 export const useMarkAllNotificationsRead = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user } = useOfflineAuth();
 
   return useMutation({
     mutationFn: async () => {
