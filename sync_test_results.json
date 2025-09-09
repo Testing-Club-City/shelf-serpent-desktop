@@ -1,0 +1,249 @@
+{
+  "categories": {
+    "table": "categories",
+    "local_total": 26,
+    "local_unsynced": 26,
+    "supabase_total": 0,
+    "sample_records": 3,
+    "upload_test": {
+      "status": "mapping_ok",
+      "records": 3,
+      "sample_fields": [
+        "id",
+        "name",
+        "description",
+        "created_at",
+        "updated_at"
+      ],
+      "json_size": 203
+    },
+    "sync_ready": true
+  },
+  "classes": {
+    "table": "classes",
+    "local_total": 26,
+    "local_unsynced": 26,
+    "supabase_total": 0,
+    "sample_records": 3,
+    "upload_test": {
+      "status": "mapping_ok",
+      "records": 3,
+      "sample_fields": [
+        "id",
+        "class_name",
+        "form_level",
+        "class_section",
+        "max_books_allowed",
+        "is_active",
+        "created_at",
+        "updated_at",
+        "academic_level_type"
+      ],
+      "json_size": 256
+    },
+    "sync_ready": true
+  },
+  "books": {
+    "table": "books",
+    "local_total": 2603,
+    "local_unsynced": 2603,
+    "supabase_total": 0,
+    "sample_records": 3,
+    "upload_test": {
+      "status": "mapping_ok",
+      "records": 3,
+      "sample_fields": [
+        "id",
+        "title",
+        "author",
+        "isbn",
+        "genre",
+        "publisher",
+        "publication_year",
+        "total_copies",
+        "available_copies",
+        "shelf_location",
+        "cover_image_url",
+        "description",
+        "status",
+        "category_id",
+        "created_at",
+        "updated_at",
+        "condition",
+        "book_code",
+        "acquisition_year",
+        "legacy_book_id",
+        "legacy_isbn"
+      ],
+      "json_size": 572
+    },
+    "sync_ready": true
+  },
+  "students": {
+    "table": "students",
+    "local_total": 4788,
+    "local_unsynced": 4788,
+    "supabase_total": 0,
+    "sample_records": 3,
+    "upload_test": {
+      "status": "mapping_ok",
+      "records": 3,
+      "sample_fields": [
+        "id",
+        "admission_number",
+        "first_name",
+        "last_name",
+        "email",
+        "phone",
+        "class_grade",
+        "address",
+        "date_of_birth",
+        "enrollment_date",
+        "status",
+        "created_at",
+        "updated_at",
+        "class_id",
+        "academic_year",
+        "is_repeating",
+        "legacy_student_id"
+      ],
+      "json_size": 449
+    },
+    "sync_ready": true
+  },
+  "borrowings": {
+    "table": "borrowings",
+    "local_total": 5234,
+    "local_unsynced": 5233,
+    "supabase_total": 0,
+    "sample_records": 3,
+    "upload_test": {
+      "status": "mapping_ok",
+      "records": 3,
+      "sample_fields": [
+        "id",
+        "student_id",
+        "book_id",
+        "borrowed_date",
+        "due_date",
+        "returned_date",
+        "status",
+        "fine_amount",
+        "notes",
+        "issued_by",
+        "returned_by",
+        "created_at",
+        "updated_at",
+        "fine_paid",
+        "book_copy_id",
+        "condition_at_issue",
+        "condition_at_return",
+        "is_lost",
+        "tracking_code",
+        "return_notes",
+        "copy_condition",
+        "group_borrowing_id",
+        "borrower_type",
+        "staff_id"
+      ],
+      "json_size": 721
+    },
+    "sync_ready": true
+  },
+  "book_copies": {
+    "table": "book_copies",
+    "local_total": 72772,
+    "local_unsynced": 0,
+    "supabase_total": 0,
+    "sample_records": 0,
+    "upload_test": {
+      "status": "no_data",
+      "records": 0
+    },
+    "sync_ready": false
+  },
+  "staff": {
+    "table": "staff",
+    "local_total": 1,
+    "local_unsynced": 1,
+    "supabase_total": 1,
+    "sample_records": 1,
+    "upload_test": {
+      "status": "mapping_ok",
+      "records": 1,
+      "sample_fields": [
+        "id",
+        "staff_id",
+        "first_name",
+        "last_name",
+        "email",
+        "phone",
+        "department",
+        "position",
+        "status",
+        "created_at",
+        "updated_at",
+        "legacy_staff_id"
+      ],
+      "json_size": 310
+    },
+    "sync_ready": true
+  },
+  "fines": {
+    "table": "fines",
+    "local_total": 0,
+    "local_unsynced": 0,
+    "supabase_total": 0,
+    "sample_records": 0,
+    "upload_test": {
+      "status": "no_data",
+      "records": 0
+    },
+    "sync_ready": false
+  },
+  "fine_settings": {
+    "table": "fine_settings",
+    "local_total": 7,
+    "local_unsynced": 0,
+    "supabase_total": 0,
+    "sample_records": 3,
+    "upload_test": {
+      "status": "mapping_ok",
+      "records": 3,
+      "sample_fields": [
+        "id",
+        "fine_type",
+        "amount",
+        "description",
+        "created_at",
+        "updated_at"
+      ],
+      "json_size": 225
+    },
+    "sync_ready": false
+  },
+  "group_borrowings": {
+    "table": "group_borrowings",
+    "local_total": 0,
+    "local_unsynced": 0,
+    "supabase_total": 0,
+    "sample_records": 0,
+    "upload_test": {
+      "status": "no_data",
+      "records": 0
+    },
+    "sync_ready": false
+  },
+  "theft_reports": {
+    "table": "theft_reports",
+    "local_total": 0,
+    "local_unsynced": 0,
+    "supabase_total": 0,
+    "sample_records": 0,
+    "upload_test": {
+      "status": "no_data",
+      "records": 0
+    },
+    "sync_ready": false
+  }
+}

@@ -1,0 +1,613 @@
+﻿// Temporarily enable console window on Windows for debugging
+#![cfg_attr(not(debug_assertions), windows_subsystem = "console")]
+
+mod commands;
+mod database;
+mod models;
+mod sync;
+mod simple_sync;
+mod logging;
+// mod auth;
+
+use commands::*;
+use database::DatabaseManager;
+// use auth::AuthManager;
+use sync::SupabaseConfig;
+use logging::ActivityLogger;
+use std::sync::Arc;
+use sqlx::sqlite::SqlitePool;
+use tauri::{
+    AppHandle, 
+    Manager, 
+    menu::{Menu, MenuItem, PredefinedMenuItem},
+    tray::{TrayIconBuilder, TrayIconEvent},
+};
+
+// Function to create the system tray menu
+fn create_tray_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
+    let menu = Menu::new(app)?;
+    
+    // Simple menu - just show/hide and quit
+    menu.append(&MenuItem::with_id(app, "show_app", "Show Library Manager", true, None::<&str>)?)?;
+    menu.append(&MenuItem::with_id(app, "hide_app", "Hide to Tray", true, None::<&str>)?)?;
+    menu.append(&PredefinedMenuItem::separator(app)?)?;
+    menu.append(&MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?)?;
+    
+    Ok(menu)
+}
+
+// Function to handle tray menu events
+fn handle_tray_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
+    match event.id().as_ref() {
+        "show_app" => {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }
+        "hide_app" => {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.hide();
+            }
+        }
+        "quit" => {
+            app.exit(0);
+        }
+        _ => {}
+    }
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("🚀 Starting Library Management System...");
+    
+    // Initialize tracing with reduced verbosity for GUI framework warnings
+    if std::env::var("RUST_LOG").is_err() {
+        std::env::set_var("RUST_LOG", "tauri_app=info,warn,tao=error");
+    }
+    tracing_subscriber::fmt::init();
+    println!("✅ Tracing initialized");
+
+    // Initialize database
+    println!("📂 Initializing database...");
+    let app_data_dir = dirs::data_dir()
+        .expect("Failed to get data directory")
+        .join("library-management-system");
+    
+    std::fs::create_dir_all(&app_data_dir)?;
+    
+    let db_path = app_data_dir.join("library.db");
+    let db_manager = Arc::new(
+        DatabaseManager::new(db_path.to_str().unwrap())
+            .expect("Failed to initialize database")
+    );
+    println!("✅ Database initialized at: {:?}", db_path);
+
+    // Initialize activity logger
+    println!("📝 Initializing activity logger...");
+    let logs_dir = app_data_dir.join("logs");
+    let activity_logger = Arc::new(
+        ActivityLogger::new(logs_dir.clone())
+            .expect("Failed to initialize activity logger")
+    );
+    println!("✅ Activity logger initialized at: {:?}", logs_dir);
+
+    // Log application startup with detailed system info
+    let startup_time = std::time::Instant::now();
+    activity_logger.log(&logging::ActivityLogEntry::new(
+        logging::LogLevel::Info,
+        "Application".to_string(),
+        "Startup Initiated".to_string(),
+    ).with_details(serde_json::json!({
+        "version": env!("CARGO_PKG_VERSION"),
+        "database_path": db_path.to_string_lossy(),
+        "logs_directory": logs_dir.to_string_lossy(),
+        "app_data_dir": app_data_dir.to_string_lossy(),
+        "system_info": {
+            "os": std::env::consts::OS,
+            "arch": std::env::consts::ARCH,
+            "family": std::env::consts::FAMILY
+        },
+        "process_id": std::process::id(),
+        "thread_id": format!("{:?}", std::thread::current().id())
+    })));
+    
+    // Create SQLite pool for sync engine
+    let db_start = std::time::Instant::now();
+    println!("🔗 Creating SQLite pool...");
+    activity_logger.log(&logging::ActivityLogEntry::new(
+        logging::LogLevel::Info,
+        "Database".to_string(),
+        "SQLite Pool Creation Started".to_string(),
+    ).with_details(serde_json::json!({
+        "database_path": db_path.to_string_lossy()
+    })));
+    
+    let sqlite_pool = match SqlitePool::connect(db_path.to_str().unwrap()).await {
+        Ok(pool) => {
+            let duration = db_start.elapsed();
+            activity_logger.log(&logging::ActivityLogEntry::new(
+                logging::LogLevel::Info,
+                "Database".to_string(),
+                "SQLite Pool Created".to_string(),
+            ).with_details(serde_json::json!({
+                "duration_ms": duration.as_millis(),
+                "pool_size": "default"
+            })).with_duration(duration.as_millis() as u64));
+            println!("✅ SQLite pool created in {:?}", duration);
+            pool
+        }
+        Err(e) => {
+            activity_logger.log(&logging::ActivityLogEntry::new(
+                logging::LogLevel::Error,
+                "Database".to_string(),
+                "SQLite Pool Creation Failed".to_string(),
+            ).with_error(e.to_string(), None));
+            panic!("Failed to create SQLite pool: {}", e);
+        }
+    };
+
+    // Initialize sync engine with proper Supabase config
+    let sync_start = std::time::Instant::now();
+    println!("🔄 Initializing sync engine...");
+    activity_logger.log(&logging::ActivityLogEntry::new(
+        logging::LogLevel::Info,
+        "Sync Engine".to_string(),
+        "Initialization Started".to_string(),
+    ));
+    
+    let supabase_config = SupabaseConfig {
+        url: "https://ddlzenlqkofefdwdefzm.supabase.co".to_string(),
+        anon_key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRkbHplbmxxa29mZWZkd2RlZnptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5MzEwNDUsImV4cCI6MjA2NDUwNzA0NX0.wyIuCalCMVs5zUPExw02QDYDrQSCCEzZerYBA_hfosU".to_string(),
+        batch_size: 100,
+    };
+    
+    activity_logger.log(&logging::ActivityLogEntry::new(
+        logging::LogLevel::Debug,
+        "Sync Engine".to_string(),
+        "Supabase Config Loaded".to_string(),
+    ).with_details(serde_json::json!({
+        "url": supabase_config.url,
+        "batch_size": supabase_config.batch_size
+    })));
+    
+    // Create remote data source
+    let remote = Arc::new(sync::SupabaseRemoteDataSource::new(supabase_config)?);
+    
+    // Create local data store
+    let local = Arc::new(sync::SqliteLocalDataStore::new(sqlite_pool));
+    
+    // Create conflict resolver
+    let conflict_resolver = Arc::new(sync::DefaultConflictResolver);
+    
+    // Build sync engine using the builder pattern
+    let sync_engine = match sync::SyncEngineBuilder::new()
+        .with_remote(remote)
+        .with_local(local)
+        .with_conflict_resolver(conflict_resolver)
+        .build() {
+        Ok(engine) => {
+            let duration = sync_start.elapsed();
+            activity_logger.log(&logging::ActivityLogEntry::new(
+                logging::LogLevel::Info,
+                "Sync Engine".to_string(),
+                "Built Successfully".to_string(),
+            ).with_details(serde_json::json!({
+                "duration_ms": duration.as_millis(),
+                "components_initialized": ["remote", "local", "conflict_resolver"]
+            })).with_duration(duration.as_millis() as u64));
+            println!("✅ Sync engine initialized in {:?}", duration);
+            engine
+        }
+        Err(e) => {
+            activity_logger.log(&logging::ActivityLogEntry::new(
+                logging::LogLevel::Error,
+                "Sync Engine".to_string(),
+                "Build Failed".to_string(),
+            ).with_error(e.to_string(), None));
+            panic!("Failed to build sync engine: {}", e);
+        }
+    };
+
+    // Initialize AuthManager for offline-first authentication
+    // let auth_manager = Arc::new(AuthManager::new(db_manager.clone()));
+
+    println!("🖥️ Starting Tauri application...");
+    tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init()) // This will use the default configuration
+        .plugin(tauri_plugin_http::init())
+        .manage(db_manager.clone())
+        .manage(sync_engine)
+        .manage(activity_logger.clone())
+        // .manage(auth_manager.clone())
+        .invoke_handler(tauri::generate_handler![
+            // Book commands - Core offline-capable operations
+            create_book,
+            get_books,
+            search_books,
+            update_book,
+            delete_book,
+            
+            // Enhanced optimized operations
+            batch_create_books,
+            global_search,
+            get_books_paginated,
+            delete_book,
+            
+            // Student commands
+            create_student,
+            get_students,
+            update_student,
+            delete_student,
+            
+            // Staff commands
+            create_staff,
+            get_staff,
+            update_staff,
+            delete_staff,
+            
+            // Class commands
+            create_class,
+            get_classes,
+            update_class,
+            delete_class,
+            
+            // Borrowing commands - Core offline-capable operations
+            get_borrowings,
+            create_borrowing,
+            return_book,
+            
+            // Category commands
+            create_category,
+            get_categories,
+            
+            // Analytics commands - Optimized for large datasets
+            get_library_stats,
+            
+            // Sync commands - Hybrid online/offline capabilities
+            get_sync_status,
+            trigger_sync,
+            get_cached_connectivity_status,
+            check_connectivity,
+            force_connectivity_refresh,
+            setup_sync_config,
+            get_connection_status,
+            maintain_session,
+            restore_session,
+            initial_data_pull,
+            check_local_data_count,
+            
+            // Professional Sync Commands for UI
+            sync_books_only,
+            sync_categories_only,
+            sync_students_only,
+            sync_borrowings_only,
+            sync_staff_only,
+            sync_classes_only,
+            sync_book_copies_only,
+            sync_fines_only,
+            sync_fine_settings_only,
+            sync_group_borrowings_only,
+            sync_theft_reports_only,
+            sync_all_data,
+            clear_local_database,
+            get_local_data_stats,
+            pull_all_database,
+            
+            // Session management commands
+            save_user_session,
+            get_cached_user_session,
+            invalidate_user_session,
+            is_session_valid_offline,
+            cleanup_expired_sessions,
+            
+            // Enhanced Authentication Commands
+            // authenticate_user,
+            // store_authenticated_session,
+            // get_stored_session,
+            // logout_user,
+            // cleanup_expired_auth_sessions,
+            
+            // Database optimization commands
+            optimize_database,
+            get_database_info,
+            get_performance_stats,
+            enhance_database_performance,
+            
+            // Utility commands
+            generate_id,
+            get_app_version,
+            
+            // Activity logging commands
+            init_activity_logger,
+            log_activity_entry,
+            log_simple_activity,
+            get_activity_logs,
+            get_activity_log_stats,
+            export_activity_logs,
+            clear_activity_logs,
+        ])
+        .setup(move |app| {
+            let setup_start = std::time::Instant::now();
+            println!("🎯 Setting up Tauri application...");
+            activity_logger.log(&logging::ActivityLogEntry::new(
+                logging::LogLevel::Info,
+                "Tauri".to_string(),
+                "Setup Started".to_string(),
+            ));
+            
+            // Create system tray with sync operations
+            let tray_start = std::time::Instant::now();
+            let tray_menu = create_tray_menu(app.handle())?;
+            // Create clones for tray event handlers
+            let activity_logger_menu = activity_logger.clone();
+            let activity_logger_tray = activity_logger.clone();
+            
+            let tray_result = TrayIconBuilder::new()
+                .menu(&tray_menu)
+                .on_menu_event(move |app, event| {
+                    let event_start = std::time::Instant::now();
+                    activity_logger_menu.log(&logging::ActivityLogEntry::new(
+                        logging::LogLevel::Debug,
+                        "System Tray".to_string(),
+                        "Menu Event".to_string(),
+                    ).with_details(serde_json::json!({
+                        "event_id": event.id().as_ref()
+                    })));
+                    handle_tray_event(app, event);
+                    let duration = event_start.elapsed();
+                    activity_logger_menu.log(&logging::ActivityLogEntry::new(
+                        logging::LogLevel::Trace,
+                        "System Tray".to_string(),
+                        "Menu Event Handled".to_string(),
+                    ).with_duration(duration.as_millis() as u64));
+                })
+                .on_tray_icon_event(move |tray, event| {
+                    let tray_event_start = std::time::Instant::now();
+                    activity_logger_tray.log(&logging::ActivityLogEntry::new(
+                        logging::LogLevel::Debug,
+                        "System Tray".to_string(),
+                        "Tray Icon Event".to_string(),
+                    ).with_details(serde_json::json!({
+                        "event_type": format!("{:?}", event)
+                    })));
+                    
+                    if let TrayIconEvent::Click { .. } = event {
+                        if let Some(window) = tray.app_handle().get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    
+                    let duration = tray_event_start.elapsed();
+                    activity_logger_tray.log(&logging::ActivityLogEntry::new(
+                        logging::LogLevel::Trace,
+                        "System Tray".to_string(),
+                        "Tray Event Handled".to_string(),
+                    ).with_duration(duration.as_millis() as u64));
+                })
+                .build(app);
+                
+            match tray_result {
+                Ok(_) => {
+                    let duration = tray_start.elapsed();
+                    activity_logger.log(&logging::ActivityLogEntry::new(
+                        logging::LogLevel::Info,
+                        "System Tray".to_string(),
+                        "Created Successfully".to_string(),
+                    ).with_duration(duration.as_millis() as u64));
+                    println!("✅ System tray created in {:?}", duration);
+                }
+                Err(e) => {
+                    activity_logger.log(&logging::ActivityLogEntry::new(
+                        logging::LogLevel::Error,
+                        "System Tray".to_string(),
+                        "Creation Failed".to_string(),
+                    ).with_error(e.to_string(), None));
+                    println!("⚠️ Warning: Failed to create system tray: {}", e);
+                }
+            }
+
+            #[cfg(debug_assertions)]
+            {
+                // Ensure the main window is visible and focused with error handling
+                let window_start = std::time::Instant::now();
+                if let Some(window) = app.get_webview_window("main") {
+                    activity_logger.log(&logging::ActivityLogEntry::new(
+                        logging::LogLevel::Info,
+                        "Window".to_string(),
+                        "Window Found".to_string(),
+                    ));
+                    
+                    println!("🖼️ Making sure main window is visible...");
+                    
+                    // Add delay to ensure WebView2 is ready
+                    std::thread::sleep(std::time::Duration::from_millis(500));
+                    
+                    let mut operations = Vec::new();
+                    
+                    if let Err(e) = window.show() {
+                        operations.push(("show", e.to_string()));
+                        activity_logger.log(&logging::ActivityLogEntry::new(
+                            logging::LogLevel::Warning,
+                            "Window".to_string(),
+                            "Show Failed".to_string(),
+                        ).with_error(e.to_string(), None));
+                    } else {
+                        operations.push(("show", "success".to_string()));
+                    }
+                    
+                    if let Err(e) = window.set_focus() {
+                        operations.push(("focus", e.to_string()));
+                        activity_logger.log(&logging::ActivityLogEntry::new(
+                            logging::LogLevel::Warning,
+                            "Window".to_string(),
+                            "Focus Failed".to_string(),
+                        ).with_error(e.to_string(), None));
+                    } else {
+                        operations.push(("focus", "success".to_string()));
+                    }
+                    
+                    if let Err(e) = window.unminimize() {
+                        operations.push(("unminimize", e.to_string()));
+                        activity_logger.log(&logging::ActivityLogEntry::new(
+                            logging::LogLevel::Warning,
+                            "Window".to_string(),
+                            "Unminimize Failed".to_string(),
+                        ).with_error(e.to_string(), None));
+                    } else {
+                        operations.push(("unminimize", "success".to_string()));
+                    }
+                    
+                    if let Err(e) = window.center() {
+                        operations.push(("center", e.to_string()));
+                        activity_logger.log(&logging::ActivityLogEntry::new(
+                            logging::LogLevel::Warning,
+                            "Window".to_string(),
+                            "Center Failed".to_string(),
+                        ).with_error(e.to_string(), None));
+                    } else {
+                        operations.push(("center", "success".to_string()));
+                    }
+                    
+                    let duration = window_start.elapsed();
+                    activity_logger.log(&logging::ActivityLogEntry::new(
+                        logging::LogLevel::Info,
+                        "Window".to_string(),
+                        "Window Operations Completed".to_string(),
+                    ).with_details(serde_json::json!({
+                        "operations": operations,
+                        "duration_ms": duration.as_millis()
+                    })).with_duration(duration.as_millis() as u64));
+                    
+                    println!("✅ Main window operations completed in {:?}", duration);
+                } else {
+                    activity_logger.log(&logging::ActivityLogEntry::new(
+                        logging::LogLevel::Warning,
+                        "Window".to_string(),
+                        "Window Not Found".to_string(),
+                    ));
+                    println!("⚠️ Warning: Could not find main window!");
+                }
+            } // This closing brace was missing!
+            
+            let setup_duration = setup_start.elapsed();
+            
+            activity_logger.log(&logging::ActivityLogEntry::new(
+                logging::LogLevel::Info,
+                "Application".to_string(),
+                "Setup Completed".to_string(),
+            ).with_details(serde_json::json!({
+                "total_setup_time_ms": setup_duration.as_millis(),
+                "startup_time_ms": startup_time.elapsed().as_millis()
+            })).with_duration(setup_duration.as_millis() as u64));
+            
+            println!("✅ Tauri setup completed in {:?}", setup_duration);
+            
+            // Make sync completely non-blocking and optional with proper error handling
+            let _db_manager_clone = db_manager.clone();
+            let _activity_logger_clone = activity_logger.clone();
+            tokio::spawn(async move {
+                println!("⏰ Scheduling background sync check...");
+                _activity_logger_clone.log(&logging::ActivityLogEntry::new(
+                    logging::LogLevel::Info,
+                    "Background".to_string(),
+                    "Sync Check Scheduled".to_string(),
+                ));
+                
+                // Wait longer for the app to fully initialize and be responsive
+                tokio::time::sleep(std::time::Duration::from_secs(8)).await;
+                
+                println!("🔍 Checking if sync is needed...");
+                // Only sync if we have very few records (first time setup)
+                let should_sync = match simple_sync::check_if_sync_needed().await {
+                    Ok(needed) => {
+                        println!("📊 Sync needed: {}", needed);
+                        _activity_logger_clone.log(&logging::ActivityLogEntry::new(
+                            logging::LogLevel::Info,
+                            "Background".to_string(),
+                            "Sync Check Completed".to_string(),
+                        ).with_details(serde_json::json!({
+                            "sync_needed": needed
+                        })));
+                        needed
+                    },
+                    Err(e) => {
+                        println!("⚠️ Error checking sync status: {}", e);
+                        _activity_logger_clone.log(&logging::ActivityLogEntry::new(
+                            logging::LogLevel::Error,
+                            "Background".to_string(),
+                            "Sync Check Failed".to_string(),
+                        ).with_error(e.to_string(), None));
+                        false
+                    },
+                };
+                
+                if should_sync {
+                    println!("🚀 Starting automatic data sync...");
+                    _activity_logger_clone.log(&logging::ActivityLogEntry::new(
+                        logging::LogLevel::Info,
+                        "Background".to_string(),
+                        "Auto Sync Started".to_string(),
+                    ));
+                    
+                    match simple_sync::sync_data_from_supabase().await {
+                        Ok(_) => {
+                            println!("✅ Automatic sync completed successfully!");
+                            _activity_logger_clone.log(&logging::ActivityLogEntry::new(
+                                logging::LogLevel::Info,
+                                "Background".to_string(),
+                                "Auto Sync Completed".to_string(),
+                            ));
+                        },
+                        Err(e) => {
+                            eprintln!("❌ Automatic sync failed: {}", e);
+                            _activity_logger_clone.log(&logging::ActivityLogEntry::new(
+                                logging::LogLevel::Error,
+                                "Background".to_string(),
+                                "Auto Sync Failed".to_string(),
+                            ).with_error(e.to_string(), None));
+                            println!("📱 App will continue to work offline");
+                        },
+                    }
+                } else {
+                    println!("📊 Database already has data, skipping automatic sync");
+                    _activity_logger_clone.log(&logging::ActivityLogEntry::new(
+                        logging::LogLevel::Info,
+                        "Background".to_string(),
+                        "Sync Skipped - Data Exists".to_string(),
+                    ));
+                }
+                println!("🎉 Background initialization completed!");
+            });
+
+            Ok(())
+        })
+        .on_window_event(|window, event| {
+            let event_time = std::time::Instant::now();
+            match event {
+                tauri::WindowEvent::Resized { .. } => {
+                    if let Some(window) = window.get_webview_window("main") {
+                        let _ = window.center();
+                    }
+                }
+                tauri::WindowEvent::Focused(focused) => {
+                    println!("🪟 Window focus changed: {}", focused);
+                }
+                tauri::WindowEvent::CloseRequested { .. } => {
+                    println!("🚪 Close requested");
+                }
+                tauri::WindowEvent::Destroyed => {
+                    println!("💥 Window destroyed");
+                }
+                _ => {}
+            }
+        })
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+
+    Ok(())
+}

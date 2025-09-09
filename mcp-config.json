@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "supabase-analyzer": {
+      "command": "node",
+      "args": ["supabase-mcp-server.js"],
+      "cwd": ".",
+      "env": {
+        "NODE_ENV": "production"
+      }
+    }
+  }
+}

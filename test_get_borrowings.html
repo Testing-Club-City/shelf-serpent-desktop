@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Get Borrowings Command</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .results {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+        .error {
+            border-left-color: #dc3545;
+            background-color: #f8d7da;
+        }
+        .success {
+            border-left-color: #28a745;
+            background-color: #d4edda;
+        }
+        .borrowing-item {
+            background: #fff;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .borrowing-header {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 10px;
+        }
+        .borrowing-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        .detail-item {
+            padding: 5px;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #6c757d;
+        }
+        .status-badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .status-borrowed {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .status-returned {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status-overdue {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .loading {
+            text-align: center;
+            color: #6c757d;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📚 Test Get Borrowings Command</h1>
+        
+        <div class="test-section">
+            <h3>🔍 Borrowings Data Test</h3>
+            <p>This test will call the <code>get_borrowings</code> command to retrieve all borrowing records from the local SQLite database.</p>
+            
+            <button id="testGetBorrowings" onclick="testGetBorrowings()">
+                Get All Borrowings
+            </button>
+            
+            <button id="refreshData" onclick="refreshBorrowingsData()" style="background-color: #28a745;">
+                🔄 Refresh Data
+            </button>
+            
+            <button id="clearResults" onclick="clearResults()" style="background-color: #6c757d;">
+                🗑️ Clear Results
+            </button>
+            
+            <div id="borrowingsResults" class="results" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Borrowings Statistics</h3>
+            <div id="borrowingsStats" class="stats" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 Borrowings List</h3>
+            <div id="borrowingsList"></div>
+        </div>
+    </div>
+
+    <script>
+        // Check if we're in Tauri environment
+        if (typeof window.__TAURI__ === 'undefined') {
+            document.body.innerHTML = `
+                <div class="container">
+                    <h1>⚠️ Tauri Environment Required</h1>
+                    <p>This test file needs to be run within a Tauri application environment.</p>
+                    <p>Please run this file using the Tauri dev server or built application.</p>
+                </div>
+            `;
+        }
+
+        let borrowingsData = [];
+
+        async function testGetBorrowings() {
+            const button = document.getElementById('testGetBorrowings');
+            const resultsDiv = document.getElementById('borrowingsResults');
+            
+            button.disabled = true;
+            button.textContent = 'Loading...';
+            resultsDiv.style.display = 'block';
+            resultsDiv.className = 'results loading';
+            resultsDiv.innerHTML = '🔄 Fetching borrowings data from local database...';
+
+            try {
+                console.log('Calling get_borrowings command...');
+                const result = await window.__TAURI__.core.invoke('get_borrowings');
+                
+                console.log('Borrowings data received:', result);
+                borrowingsData = result;
+                
+                resultsDiv.className = 'results success';
+                resultsDiv.innerHTML = `
+                    <h4>✅ Success!</h4>
+                    <p><strong>Total borrowings found:</strong> ${result.length}</p>
+                    <p><strong>Command executed:</strong> get_borrowings</p>
+                    <p><strong>Data source:</strong> Local SQLite database</p>
+                    <details>
+                        <summary>Raw JSON Response (click to expand)</summary>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    </details>
+                `;
+
+                // Update statistics
+                updateBorrowingsStats(result);
+                
+                // Display borrowings list
+                displayBorrowingsList(result);
+
+            } catch (error) {
+                console.error('Error calling get_borrowings:', error);
+                resultsDiv.className = 'results error';
+                resultsDiv.innerHTML = `
+                    <h4>❌ Error</h4>
+                    <p><strong>Error message:</strong> ${error}</p>
+                    <p>Make sure the Tauri application is running and the database is accessible.</p>
+                `;
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Get All Borrowings';
+            }
+        }
+
+        function updateBorrowingsStats(borrowings) {
+            const statsDiv = document.getElementById('borrowingsStats');
+            
+            if (borrowings.length === 0) {
+                statsDiv.style.display = 'none';
+                return;
+            }
+
+            // Calculate statistics
+            const totalBorrowings = borrowings.length;
+            const activeBorrowings = borrowings.filter(b => b.status === 'borrowed').length;
+            const returnedBorrowings = borrowings.filter(b => b.status === 'returned').length;
+            const overdueBorrowings = borrowings.filter(b => {
+                if (b.status !== 'borrowed') return false;
+                const dueDate = new Date(b.due_date);
+                return dueDate < new Date();
+            }).length;
+            
+            const borrowingsWithFines = borrowings.filter(b => b.fine_amount && b.fine_amount > 0).length;
+            const totalFineAmount = borrowings.reduce((sum, b) => sum + (b.fine_amount || 0), 0);
+
+            statsDiv.style.display = 'grid';
+            statsDiv.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-number">${totalBorrowings}</div>
+                    <div class="stat-label">Total Borrowings</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${activeBorrowings}</div>
+                    <div class="stat-label">Active Borrowings</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${returnedBorrowings}</div>
+                    <div class="stat-label">Returned Books</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${overdueBorrowings}</div>
+                    <div class="stat-label">Overdue Books</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${borrowingsWithFines}</div>
+                    <div class="stat-label">With Fines</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">$${totalFineAmount.toFixed(2)}</div>
+                    <div class="stat-label">Total Fines</div>
+                </div>
+            `;
+        }
+
+        function displayBorrowingsList(borrowings) {
+            const listDiv = document.getElementById('borrowingsList');
+            
+            if (borrowings.length === 0) {
+                listDiv.innerHTML = '<p>No borrowings found in the database.</p>';
+                return;
+            }
+
+            const borrowingsHtml = borrowings.map(borrowing => {
+                const dueDate = new Date(borrowing.due_date);
+                const isOverdue = borrowing.status === 'borrowed' && dueDate < new Date();
+                
+                let statusClass = 'status-borrowed';
+                if (borrowing.status === 'returned') statusClass = 'status-returned';
+                if (isOverdue) statusClass = 'status-overdue';
+
+                return `
+                    <div class="borrowing-item">
+                        <div class="borrowing-header">
+                            📖 Borrowing ID: ${borrowing.id}
+                            <span class="status-badge ${statusClass}">
+                                ${isOverdue ? 'OVERDUE' : borrowing.status.toUpperCase()}
+                            </span>
+                        </div>
+                        <div class="borrowing-details">
+                            <div class="detail-item">
+                                <div class="detail-label">Student:</div>
+                                ${borrowing.students ? 
+                                    `${borrowing.students.first_name} ${borrowing.students.last_name} (${borrowing.students.admission_number})` : 
+                                    'N/A'
+                                }
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Book:</div>
+                                ${borrowing.books ? 
+                                    `${borrowing.books.title} by ${borrowing.books.author}` : 
+                                    'N/A'
+                                }
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Borrowed Date:</div>
+                                ${new Date(borrowing.borrowed_date).toLocaleDateString()}
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Due Date:</div>
+                                ${dueDate.toLocaleDateString()}
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Returned Date:</div>
+                                ${borrowing.returned_date ? new Date(borrowing.returned_date).toLocaleDateString() : 'Not returned'}
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Fine Amount:</div>
+                                ${borrowing.fine_amount ? `$${borrowing.fine_amount.toFixed(2)}` : '$0.00'}
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Tracking Code:</div>
+                                ${borrowing.tracking_code || 'N/A'}
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Borrower Type:</div>
+                                ${borrowing.borrower_type || 'N/A'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            listDiv.innerHTML = borrowingsHtml;
+        }
+
+        async function refreshBorrowingsData() {
+            await testGetBorrowings();
+        }
+
+        function clearResults() {
+            document.getElementById('borrowingsResults').style.display = 'none';
+            document.getElementById('borrowingsStats').style.display = 'none';
+            document.getElementById('borrowingsList').innerHTML = '';
+            borrowingsData = [];
+        }
+
+        // Auto-load data when page loads
+        window.addEventListener('load', () => {
+            if (typeof window.__TAURI__ !== 'undefined') {
+                setTimeout(() => {
+                    testGetBorrowings();
+                }, 1000);
+            }
+        });
+    </script>
+</body>
+</html>

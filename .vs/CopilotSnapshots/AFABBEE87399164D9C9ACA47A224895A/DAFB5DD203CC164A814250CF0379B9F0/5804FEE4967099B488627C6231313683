@@ -1,0 +1,146 @@
+﻿import React, { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { BookOpen, User, Calendar, AlertCircle, Search, Users, GraduationCap, Plus, Trash2 } from 'lucide-react';
+import { useBooks } from '@/hooks/useBooks';
+import { useBorrowingSettings } from '@/hooks/useBorrowingSettings';
+import { addDays, format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
+import { useDebounce } from '@/hooks/useDebounce';
+import { useStudentsOffline } from '@/hooks/useStudentsOffline';
+import { useStaffOffline } from '@/hooks/useStaffOffline';
+
+interface BorrowingItem {
+  id: string;
+  tracking_code: string;
+  copy_data?: any;
+  condition_at_issue: string;
+  notes: string;
+}
+
+interface NewBorrowingFormProps {
+  onSubmit: (borrowings: any[]) => void;
+  onCancel: () => void;
+}
+
+export const NewBorrowingForm: React.FC<NewBorrowingFormProps> = ({
+  onSubmit,
+  onCancel
+}) => {
+  const { data: books } = useBooks();
+  const { calculateDueDate, getBorrowingPeriodDays, borrowingPeriodDays } = useBorrowingSettings();
+  
+  // Use offline-first hooks for borrower data
+  const { data: studentsData } = useStudentsOffline();
+  const { data: staffData } = useStaffOffline();
+  
+  const [borrowerType, setBorrowerType] = useState<'student' | 'staff'>('student');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [selectedBorrower, setSelectedBorrower] = useState<any>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [borrowedDate, setBorrowedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [dueDate, setDueDate] = useState(calculateDueDate());
+  const [borrowingItems, setBorrowingItems] = useState<BorrowingItem[]>([
+    {
+      id: '1',
+      tracking_code: '',
+      condition_at_issue: 'good',
+      notes: ''
+    }
+  ]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Debounce search query
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+
+  // Search for borrowers using offline-first approach
+  useEffect(() => {
+    const searchBorrowers = async () => {
+      if (!debouncedSearchQuery || !debouncedSearchQuery.trim()) {
+        setSearchResults([]);
+        setIsSearching(false);
+        return;
+      }
+
+      setIsSearching(true);
+      try {
+        if (borrowerType === 'student') {
+          // Use local students data for offline-first search
+          if (studentsData && studentsData.length > 0) {
+            console.log(`Searching ${studentsData.length} students from local database`);
+            
+            const query = debouncedSearchQuery.toLowerCase();
+            const filteredStudents = studentsData.filter((student: any) => {
+              // Check if student status is active (if status field exists)
+              const isActive = !student.status || student.status === 'active';
+              
+              const matchesSearch = 
+                student.admission_number?.toLowerCase().includes(query) ||
+                student.first_name?.toLowerCase().includes(query) ||
+                student.last_name?.toLowerCase().includes(query) ||
+                `${student.first_name} ${student.last_name}`.toLowerCase().includes(query);
+              
+              return isActive && matchesSearch;
+            }).slice(0, 20); // Limit to 20 results
+            
+            console.log(`Found ${filteredStudents.length} matching students locally`);
+            setSearchResults(filteredStudents);
+          } else {
+            // Fallback to Supabase if no local data available
+            console.log('No local student data available, falling back to Supabase');
+            const { data, error } = await supabase
+              .from('students')
+              .select('id, first_name, last_name, admission_number, class_grade')
+              .or(`admission_number.ilike.%${debouncedSearchQuery}%,first_name.ilike.%${debouncedSearchQuery}%,last_name.ilike.%${debouncedSearchQuery}%`)
+              .eq('status', 'active')
+              .order('admission_number')
+              .limit(20);
+            
+            if (!error) {
+              console.log(`Found ${data?.length || 0} students from Supabase`);
+              setSearchResults(data || []);
+            } else {
+              console.error('Error searching students in Supabase:', error);
+              setSearchResults([]);
+            }
+          }
+        } else {
+          // Use local staff data for offline-first search
+          if (staffData && staffData.length > 0) {
+            console.log(`Searching ${staffData.length} staff from local database`);
+            
+            const query = debouncedSearchQuery.toLowerCase();
+            const filteredStaff = staffData.filter((staff: any) => {
+              // Check if staff status is active (if status field exists)
+              const isActive = !staff.status || staff.status === 'active';
+              
+              const matchesSearch = 
+                staff.staff_id?.toLowerCase().includes(query) ||
+                staff.first_name?.toLowerCase().includes(query) ||
+                staff.last_name?.toLowerCase().includes(query) ||
+                `${staff.first_name} ${staff.last_name}`.toLowerCase().includes(query);
+              
+              return isActive && matchesSearch;
+            }).slice(0, 20); // Limit to 20 results
+            
+            console.log(`Found ${filteredStaff.length} matching staff locally`);
+            setSearchResults(filteredStaff);
+          } else {
+            // Fallback to Supabase if no local data available
+            console.log('No local staff data available, falling back to Supabase');
+            const { data, error } = await supabase
+              .from('staff')
+              .select('id, first_name, last_name, staff_id, department')
+              .or(`staff_id.ilike.%${debouncedSearchQuery}%,first_name.ilike.%${debouncedSearchQuery}%,last_name.ilike.%${debouncedSearchQuery}%`)
+              .eq('status', 'active')
+              .order('staff_id')
+              .limit(20);
+            
+            if (!error) {
+              console.log(`Found ${data?.length |

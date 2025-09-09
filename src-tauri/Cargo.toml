@@ -1,0 +1,95 @@
+[package]
+name = "tauri-app"
+version = "0.1.0"
+description = "A Tauri App"
+authors = ["you"]
+edition = "2021"
+default-run = "tauri-app"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "tauri_app_lib"
+crate-type = ["rlib"]
+
+[[bin]]
+name = "tauri-app"
+path = "src/main.rs"
+
+
+
+[[bin]]
+name = "debug-books-sync"
+path = "src/debug_books_sync.rs"
+
+[[bin]]
+name = "debug-all-sync"
+path = "src/debug_all_sync.rs"
+
+[[bin]]
+name = "debug-book-copies-sync"
+path = "src/debug_book_copies_sync.rs"
+
+[[bin]]
+name = "sync_all_fixed"
+path = "src/sync_all_fixed.rs"
+
+[[bin]]
+name = "pull-book-ids"
+path = "src/pull_book_ids.rs"
+
+[[bin]]
+name = "run-migration"
+path = "src/run_migration.rs"
+
+[[bin]]
+name = "test-main"
+path = "src/test_main.rs"
+
+[[bin]]
+name = "minimal-test"
+path = "src/minimal_test.rs"
+
+[[bin]]
+name = "fix_database_locks"
+path = "../fix_database_locks.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [], default-features = false }
+
+[dependencies]
+tauri = { version = "2", features = [ "tray-icon"] }
+tauri-plugin-opener = "2"
+tauri-plugin-sql = { version = "2", features = ["sqlite"] }
+tauri-plugin-fs = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = { version = "2", features = [] }
+tauri-plugin-http = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+rusqlite = { version = "0.32", features = ["bundled", "chrono", "uuid"] }
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+anyhow = "1"
+thiserror = "1"
+log = "0.4"
+env_logger = "0.10"
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid"] }
+futures = "0.3"
+parking_lot = "0.12"
+dashmap = "6.0"
+async-trait = "0.1"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+dirs = "5.0"
+postgrest = "1.0"
+base64 = "0.22"
+rayon = "1.8"
+lazy_static = "1.4"
+rand = "0.8"
+

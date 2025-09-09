@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Tauri Command</title>
+    <script src="https://unpkg.com/@tauri-apps/api@2/core.js"></script>
+</head>
+<body>
+    <h1>Test Book Search Command</h1>
+    <button onclick="testBookSearch()">Test Legacy Book ID 200</button>
+    <div id="result"></div>
+
+    <script>
+        async function testBookSearch() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                console.log('Calling search_book_copy_by_legacy_id with legacy_book_id: 200');
+                
+                const result = await window.__TAURI__.core.invoke('search_book_copy_by_legacy_id', {
+                    legacy_book_id: 200
+                });
+                
+                console.log('Result:', result);
+                
+                if (result) {
+                    resultDiv.innerHTML = `
+                        <h3>✅ Book Found!</h3>
+                        <p><strong>Title:</strong> ${result.title}</p>
+                        <p><strong>Author:</strong> ${result.author}</p>
+                        <p><strong>Status:</strong> ${result.status}</p>
+                        <p><strong>Copy ID:</strong> ${result.copy_identifier}</p>
+                        <p><strong>Legacy ID:</strong> ${result.legacy_book_id}</p>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.innerHTML = '<h3>❌ No book found</h3>';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.innerHTML = `<h3>❌ Error:</h3><p>${error.message}</p><pre>${JSON.stringify(error, null, 2)}</pre>`;
+            }
+        }
+    </script>
+</body>
+</html>

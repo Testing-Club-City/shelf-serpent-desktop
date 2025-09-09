@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Book 200 Search</title>
+    <script src="https://unpkg.com/@tauri-apps/api@2/core"></script>
+</head>
+<body>
+    <h1>Test Book 200 Search</h1>
+    <button onclick="testSimpleSearch()">Test Simple Search (Legacy ID 200)</button>
+    <button onclick="testProgressiveSearch()">Test Progressive Search (200)</button>
+    <div id="results"></div>
+
+    <script>
+        const { invoke } = window.__TAURI__.core;
+
+        async function testSimpleSearch() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<p>Testing simple_search_book_by_legacy_id with 200...</p>';
+            
+            try {
+                const result = await invoke('simple_search_book_by_legacy_id', {
+                    legacy_book_id: 200
+                });
+                results.innerHTML += '<h3>Simple Search Result:</h3><pre>' + JSON.stringify(result, null, 2) + '</pre>';
+            } catch (error) {
+                results.innerHTML += '<h3>Simple Search Error:</h3><pre>' + error + '</pre>';
+            }
+        }
+
+        async function testProgressiveSearch() {
+            const results = document.getElementById('results');
+            results.innerHTML += '<p>Testing progressive_tracking_code_search with "200"...</p>';
+            
+            try {
+                const result = await invoke('progressive_tracking_code_search', {
+                    searchTerm: '200'
+                });
+                results.innerHTML += '<h3>Progressive Search Result:</h3><pre>' + JSON.stringify(result, null, 2) + '</pre>';
+            } catch (error) {
+                results.innerHTML += '<h3>Progressive Search Error:</h3><pre>' + error + '</pre>';
+            }
+        }
+    </script>
+</body>
+</html>

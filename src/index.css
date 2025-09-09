@@ -1,0 +1,278 @@
+/* Tailwind CSS imports - processed by PostCSS */
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  
+  html, body {
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Ensure native window controls are always visible */
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%; /* Use 100% height to fit window */
+    width: 100%; /* Use 100% width to fit window */
+    overflow: hidden; /* Prevent scrollbars from interfering */
+  }
+
+  /* #root should fit within the actual window bounds */
+  #root {
+    height: 100%; /* Fit to window height */
+    width: 100%; /* Fit to window width */
+    margin: 0;
+    padding: 0;
+  }
+
+  /* App container respects native window chrome */
+  .app-viewport {
+    height: 100vh; /* Use vh units which respect window chrome */
+    width: 100vw; /* Use vw units which respect window chrome */
+    min-height: 600px;
+    min-width: 800px;
+  }
+  
+  /* Ultra-fast rendering optimizations - preserve native window controls */
+  .fast-render {
+    contain: layout style paint;
+    will-change: auto;
+  }
+  
+  /* Instant visibility - don't interfere with window chrome */
+  .instant-show {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: hsl(var(--muted));
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--border));
+  border-radius: var(--radius);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground));
+}
+
+/* Smooth animations */
+* {
+  transition: color 0.2s ease-in-out, background-color 0.2s ease-in-out;
+  /* Don't override window chrome */
+}
+
+/* Loading animations */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Performance optimizations */
+.gpu-accelerated {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root {
+    --border: 0 0% 0%;
+    --input: 0 0% 0%;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Ensure border is visible in fullscreen mode */
+.app-viewport {
+  border: 1px solid #e5e7eb;
+}
+
+.app-viewport:fullscreen {
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 0 0 1px #e5e7eb;
+}
+
+/* Ensure the border persists during transitions */
+[data-tauri-drag-region] {
+  border: 1px solid #e5e7eb;
+}
+
+/* Fullscreen mode styles */
+.fullscreen-mode {
+  /* Remove any top padding/margins that might cause clipping */
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+
+.fullscreen-mode body {
+  /* Ensure body takes full height in fullscreen */
+  height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.fullscreen-mode #root {
+  /* Ensure root container takes full height */
+  height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.fullscreen-mode .app-viewport {
+  /* In fullscreen, use full viewport dimensions */
+  height: 100vh !important;
+  width: 100vw !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  /* Remove border in fullscreen to prevent clipping */
+  border: none !important;
+}
+
+/* Ensure header and content areas adjust properly in fullscreen */
+.fullscreen-mode .flex {
+  /* Make sure flex containers respect fullscreen dimensions */
+  height: 100vh;
+}
+
+.fullscreen-mode .flex-1 {
+  /* Ensure main content area takes remaining space properly */
+  flex: 1;
+  min-height: 0; /* Allow flex shrinking */
+}
+
+/* Adjust content container padding in fullscreen for better spacing */
+.fullscreen-mode .min-h-\[calc\(100vh-4rem\)\] {
+  min-height: calc(100vh - 4rem) !important;
+}
