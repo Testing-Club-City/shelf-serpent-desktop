@@ -1,57 +1,146 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+# Dependencies
+node_modules/
+target/
 
-node_modules
-dist
-dist-ssr
-*.local
+# Build outputs
+dist/
+build/
+*.exe
+*.msi
 
 # Database files
 *.db
-*.sqlite
-*.sqlite3
+*.db-*
+library.db*
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# Logs
+*.log
+*.json.log
+
+# OS files
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+Thumbs.db
 
-# Tauri specific
-src-tauri/target/
-src-tauri/Cargo.lock
+# IDE files
+.vscode/
+.idea/
 
-# Rust specific
-**/*.rs.bk
-*.pdb
+# Temporary files
+*.tmp
+*.temp
 
-# Local database files
-*.db-wal
-*.db-shm
-local_data.db
+# Zip files and archives
+*.zip
+*.tar.gz
+*.rar
+*.7z
 
-# Bundle outputs
-*.msi
-*.exe
-*.dmg
-*.deb
-*.rpm
-*.AppImage
+# WiX tools and binaries
+wix-tools/
+wix311-binaries.zip
+sqlite-tools-win-x64-3470000.zip
+sqlite-tools.zip
 
-# Environment variables
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Backup files
+*.backup
+*.backup_*
+
+# Environment files
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+
+# Package lock files (optional - uncomment if needed)
+# package-lock.json
+# yarn.lock
+
+# Build artifacts
+*.o
+*.obj
+*.lib
+*.dll
+*.so
+*.dylib
+
+# Debug files
+debug_*
+test_*
+*.debug
+
+# Migration and sync files
+migrate_*.py
+sync_*.py
+fix_*.py
+debug_*.py
+verify_*.py
+pull_*.py
+push_*.py
+update_*.py
+check_*.py
+diagnose_*.py
+final-*.js
+test-*.js
+*.cjs
+*.mjs
+
+# Database tools and checkers
+db_checker/
+sqlite-tools/
+
+# Crash logs and error files
+latest_crash_log.json
+build_errors.txt
+build_output.txt
+errors.md
+
+# CSV and data files
+*.csv
+processed_students.csv
+
+# PowerShell and batch scripts
+*.ps1
+*.bat
+*.cmd
+
+# Shell scripts
+*.sh
+
+# SQL files (except schema)
+*.sql
+!src-tauri/migrations/*.sql
+!src-tauri/src/database/schema.sql
+
+# Markdown files (except README and docs)
+*.md
+!README.md
+!docs/*.md
+
+# HTML test files
+*.html
+!index.html
+
+# JavaScript test files
+*.js
+!postcss.config.js
+!tailwind.config.js
+!vite.config.ts
+
+# Rust backup files
+*.rs.backup
+
+# Git disabled folder
+.git_disabled/
+
+# NSI installer files
+*.nsi
+
+# MCP files
+mcp-*.js
+mcp-*.json
+
+# Tauri conf backup
+*.conf.backup
