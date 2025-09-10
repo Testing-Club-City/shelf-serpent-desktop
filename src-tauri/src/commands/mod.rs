@@ -766,6 +766,117 @@ pub async fn get_fines_by_student(
 }
 
 #[tauri::command]
+pub async fn search_staff_borrowings(
+    search_term: String,
+    state: State<'_, DatabaseState>,
+) -> Result<Vec<Value>, String> {
+    let trimmed_term = search_term.trim();
+    if trimmed_term.is_empty() {
+        return Ok(Vec::new());
+    }
+    
+    let conn = state.get_connection().lock().map_err(|e| format!("Database lock error: {}", e))?;
+    
+    // Detect search type for optimized query
+    let (query, search_pattern) = if trimmed_term.chars().all(|c| c.is_ascii_digit()) {
+        // Phone number search (integers only)
+        println!("📱 Phone search: {}", trimmed_term);
+        ("SELECT b.id as borrowing_id, b.staff_id, b.status, b.borrowed_date, b.due_date,
+                 b.returned_date, b.tracking_code, b.notes, b.borrower_type,
+                 bc.title as book_title, bc.author as book_author, bc.copy_identifier,
+                 s.first_name, s.last_name, s.phone, s.staff_number, s.staff_id as staff_number,
+                 s.department, s.position
+          FROM borrowings b
+          INNER JOIN staff s ON b.staff_id = s.id
+          LEFT JOIN book_copies bc ON b.book_copy_id = bc.id
+          WHERE b.status = 'active' AND b.deleted = 0 AND s.deleted = 0
+            AND (b.borrower_type = 'staff' OR b.staff_id IS NOT NULL)
+            AND s.phone LIKE ?
+          ORDER BY b.borrowed_date DESC LIMIT 100",
+         format!("%{}%", trimmed_term))
+    } else if trimmed_term.chars().all(|c| c.is_ascii_alphabetic() || c.is_whitespace()) {
+        // Name search (letters only)
+        println!("👤 Name search: {}", trimmed_term);
+        ("SELECT b.id as borrowing_id, b.staff_id, b.status, b.borrowed_date, b.due_date,
+                 b.returned_date, b.tracking_code, b.notes, b.borrower_type,
+                 bc.title as book_title, bc.author as book_author, bc.copy_identifier,
+                 s.first_name, s.last_name, s.phone, s.staff_number, s.staff_id as staff_number,
+                 s.department, s.position
+          FROM borrowings b
+          INNER JOIN staff s ON b.staff_id = s.id
+          LEFT JOIN book_copies bc ON b.book_copy_id = bc.id
+          WHERE b.status = 'active' AND b.deleted = 0 AND s.deleted = 0
+            AND (b.borrower_type = 'staff' OR b.staff_id IS NOT NULL)
+            AND (LOWER(s.first_name) LIKE LOWER(?) OR LOWER(s.last_name) LIKE LOWER(?))
+          ORDER BY b.borrowed_date DESC LIMIT 100",
+         format!("%{}%", trimmed_term))
+    } else {
+        // Staff ID search (mixed characters)
+        println!("🏷️ Staff ID search: {}", trimmed_term);
+        ("SELECT b.id as borrowing_id, b.staff_id, b.status, b.borrowed_date, b.due_date,
+                 b.returned_date, b.tracking_code, b.notes, b.borrower_type,
+                 bc.title as book_title, bc.author as book_author, bc.copy_identifier,
+                 s.first_name, s.last_name, s.phone, s.staff_number, s.staff_id as staff_number,
+                 s.department, s.position
+          FROM borrowings b
+          INNER JOIN staff s ON b.staff_id = s.id
+          LEFT JOIN book_copies bc ON b.book_copy_id = bc.id
+          WHERE b.status = 'active' AND b.deleted = 0 AND s.deleted = 0
+            AND (b.borrower_type = 'staff' OR b.staff_id IS NOT NULL)
+            AND (LOWER(s.staff_number) LIKE LOWER(?) OR LOWER(s.staff_id) LIKE LOWER(?))
+          ORDER BY b.borrowed_date DESC LIMIT 100",
+         format!("%{}%", trimmed_term))
+    };
+    
+    let mut stmt = conn.prepare_cached(query).map_err(|e| format!("Query prepare error: {}", e))?;
+    
+    // Define the row mapping closure once to avoid type mismatch
+    let row_mapper = |row: &rusqlite::Row| -> Result<serde_json::Value, rusqlite::Error> {
+        Ok(serde_json::json!({
+            "id": row.get::<_, String>("borrowing_id")?,
+            "staff_id": row.get::<_, String>("staff_id")?,
+            "status": row.get::<_, String>("status")?,
+            "borrowed_date": row.get::<_, Option<String>>("borrowed_date")?,
+            "due_date": row.get::<_, Option<String>>("due_date")?,
+            "returned_date": row.get::<_, Option<String>>("returned_date")?,
+            "tracking_code": row.get::<_, Option<String>>("tracking_code")?,
+            "notes": row.get::<_, Option<String>>("notes")?,
+            "borrower_type": row.get::<_, Option<String>>("borrower_type")?,
+            "books": {
+                "title": row.get::<_, Option<String>>("book_title")?,
+                "author": row.get::<_, Option<String>>("book_author")?,
+                "copy_identifier": row.get::<_, Option<String>>("copy_identifier")?
+            },
+            "staff": {
+                "first_name": row.get::<_, String>("first_name")?,
+                "last_name": row.get::<_, String>("last_name")?,
+                "phone": row.get::<_, Option<String>>("phone")?,
+                "staff_number": row.get::<_, Option<String>>("staff_number")?,
+                "staff_id": row.get::<_, Option<String>>("staff_number")?,
+                "department": row.get::<_, Option<String>>("department")?,
+                "position": row.get::<_, Option<String>>("position")?
+            }
+        }))
+    };
+
+    let borrowing_rows = if trimmed_term.chars().all(|c| c.is_ascii_digit()) {
+        // Phone search - single parameter
+        stmt.query_map([&search_pattern], row_mapper)
+    } else {
+        // Name or Staff ID search - two parameters
+        stmt.query_map([&search_pattern, &search_pattern], row_mapper)
+    }.map_err(|e| format!("Query execution error: {}", e))?;
+    
+    let mut staff_borrowings = Vec::new();
+    for row_result in borrowing_rows {
+        staff_borrowings.push(row_result.map_err(|e| format!("Row processing error: {}", e))?);
+    }
+    
+    println!("📚 Found {} staff borrowings", staff_borrowings.len());
+    Ok(staff_borrowings)
+}
+
+#[tauri::command]
 pub async fn create_borrowing(
     borrowing_data: Value,
     state: State<'_, DatabaseState>,

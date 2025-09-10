@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, Search, Eye, AlertTriangle, CheckCircle, XCircle, User, Book, Calendar, FileText, Users, AlertCircle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useTheftReports } from '@/hooks/useTheftReports';
 import { format } from 'date-fns';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -92,80 +93,8 @@ export const TheftReportsView: React.FC<TheftReportsViewProps> = ({ onGeneratePD
   const [selectedReport, setSelectedReport] = useState<TheftReport | null>(null);
   const { toast } = useToast();
 
-  // Fetch theft reports with victim, perpetrator, and fine details
-  const { data: theftReports = [], isLoading, refetch } = useQuery({
-    queryKey: ['theft-reports'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('theft_reports')
-        .select(`
-          *,
-          students!theft_reports_student_id_fkey (
-            id,
-            first_name,
-            last_name,
-            admission_number,
-            class_grade,
-            classes (class_name)
-          ),
-          books (
-            id,
-            title,
-            author,
-            book_code
-          ),
-          book_copies (
-            id,
-            copy_number,
-            tracking_code
-          ),
-          borrowings (
-            id,
-            issued_by,
-            borrowed_date,
-            students (
-              id,
-              first_name,
-              last_name,
-              admission_number,
-              class_grade
-            )
-          ),
-          reported_by_profile:profiles!theft_reports_reported_by_fkey (
-            first_name,
-            last_name
-          ),
-          resolved_by_profile:profiles!theft_reports_resolved_by_fkey (
-            first_name,
-            last_name
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching theft reports:', error);
-        throw error;
-      }
-
-      // Fetch associated theft fines for each report
-      const reportsWithFines = await Promise.all(
-        (data || []).map(async (report) => {
-          const { data: fines } = await supabase
-            .from('fines')
-            .select('id, amount, fine_type, description, status')
-            .eq('student_id', report.borrowings?.students?.id || '')
-            .eq('fine_type', 'theft');
-
-          return {
-            ...report,
-            theft_fines: fines || []
-          };
-        })
-      );
-
-      return reportsWithFines as TheftReport[];
-    },
-  });
+  // Fetch theft reports using the new hook
+  const { data: theftReports = [], isLoading, refetch } = useTheftReports();
 
   // Filter reports based on search and status
   const filteredReports = theftReports.filter(report => {

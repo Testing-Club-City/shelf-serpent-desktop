@@ -1,0 +1,2580 @@
+{
+  "timestamp": "2025-09-10T09:54:01.159Z",
+  "supabase_schema": {
+    "books": {
+      "exists": true,
+      "row_count": 2627,
+      "status": "✅",
+      "sample_columns": [
+        "id",
+        "title",
+        "author",
+        "isbn",
+        "genre",
+        "publisher",
+        "publication_year",
+        "total_copies",
+        "available_copies",
+        "shelf_location",
+        "cover_image_url",
+        "description",
+        "status",
+        "category_id",
+        "created_at",
+        "updated_at",
+        "condition",
+        "book_code",
+        "acquisition_year",
+        "legacy_book_id",
+        "legacy_isbn",
+        "synced",
+        "sync_version",
+        "deleted",
+        "supplier_type",
+        "supplier_name"
+      ],
+      "column_count": 26
+    },
+    "students": {
+      "exists": true,
+      "row_count": 5889,
+      "status": "✅",
+      "sample_columns": [
+        "id",
+        "admission_number",
+        "first_name",
+        "last_name",
+        "email",
+        "phone",
+        "class_grade",
+        "address",
+        "date_of_birth",
+        "enrollment_date",
+        "status",
+        "created_at",
+        "updated_at",
+        "class_id",
+        "academic_year",
+        "is_repeating",
+        "legacy_student_id",
+        "synced",
+        "sync_version",
+        "deleted"
+      ],
+      "column_count": 20
+    },
+    "staff": {
+      "exists": true,
+      "row_count": 241,
+      "status": "✅",
+      "sample_columns": [
+        "id",
+        "staff_id",
+        "first_name",
+        "last_name",
+        "email",
+        "phone",
+        "department",
+        "position",
+        "status",
+        "created_at",
+        "updated_at",
+        "legacy_staff_id",
+        "synced",
+        "sync_version",
+        "deleted",
+        "staff_number",
+        "hire_date"
+      ],
+      "column_count": 17
+    },
+    "categories": {
+      "exists": true,
+      "row_count": 28,
+      "status": "✅",
+      "sample_columns": [
+        "id",
+        "name",
+        "description",
+        "created_at",
+        "updated_at",
+        "synced",
+        "sync_version",
+        "deleted"
+      ],
+      "column_count": 8
+    },
+    "classes": {
+      "exists": true,
+      "row_count": 60,
+      "status": "✅",
+      "sample_columns": [
+        "id",
+        "class_name",
+        "form_level",
+        "class_section",
+        "max_books_allowed",
+        "is_active",
+        "created_at",
+        "updated_at",
+        "academic_level_type",
+        "synced",
+        "sync_version",
+        "deleted"
+      ],
+      "column_count": 12
+    },
+    "borrowings": {
+      "exists": true,
+      "row_count": 13869,
+      "status": "✅",
+      "sample_columns": [
+        "id",
+        "student_id",
+        "book_id",
+        "borrowed_date",
+        "due_date",
+        "returned_date",
+        "status",
+        "fine_amount",
+        "notes",
+        "issued_by",
+        "returned_by",
+        "created_at",
+        "updated_at",
+        "fine_paid",
+        "book_copy_id",
+        "condition_at_issue",
+        "condition_at_return",
+        "is_lost",
+        "tracking_code",
+        "return_notes",
+        "copy_condition",
+        "group_borrowing_id",
+        "borrower_type",
+        "staff_id",
+        "borrowing_type",
+        "long_term_period",
+        "short_term_period",
+        "is_long_term",
+        "synced",
+        "sync_version",
+        "deleted"
+      ],
+      "column_count": 31
+    },
+    "book_copies": {
+      "exists": true,
+      "row_count": 72783,
+      "status": "✅",
+      "sample_columns": [
+        "id",
+        "book_id",
+        "copy_number",
+        "book_code",
+        "condition",
+        "status",
+        "created_at",
+        "updated_at",
+        "tracking_code",
+        "notes",
+        "legacy_book_id",
+        "isbn",
+        "title",
+        "author",
+        "publisher",
+        "publication_year",
+        "copy_identifier",
+        "acquisition_date",
+        "location",
+        "department_id",
+        "current_borrower_id",
+        "borrowed_at",
+        "due_date",
+        "synced",
+        "sync_version",
+        "deleted"
+      ],
+      "column_count": 26
+    },
+    "fines": {
+      "exists": true,
+      "row_count": 1,
+      "status": "✅",
+      "sample_columns": [
+        "id",
+        "student_id",
+        "staff_id",
+        "borrowing_id",
+        "amount",
+        "status",
+        "fine_type",
+        "description",
+        "borrower_type",
+        "created_by",
+        "created_at",
+        "updated_at",
+        "synced",
+        "sync_version",
+        "deleted"
+      ],
+      "column_count": 15
+    },
+    "group_borrowings": {
+      "exists": true,
+      "row_count": 2,
+      "status": "✅",
+      "sample_columns": [
+        "id",
+        "book_id",
+        "book_copy_id",
+        "tracking_code",
+        "borrowed_date",
+        "due_date",
+        "returned_date",
+        "condition_at_issue",
+        "condition_at_return",
+        "fine_amount",
+        "fine_paid",
+        "notes",
+        "return_notes",
+        "status",
+        "is_lost",
+        "student_count",
+        "issued_by",
+        "returned_by",
+        "created_at",
+        "updated_at",
+        "student_ids",
+        "synced",
+        "sync_version",
+        "deleted"
+      ],
+      "column_count": 24
+    },
+    "theft_reports": {
+      "exists": true,
+      "row_count": 0,
+      "status": "✅"
+    },
+    "profiles": {
+      "exists": true,
+      "row_count": 7,
+      "status": "✅",
+      "sample_columns": [
+        "id",
+        "email",
+        "role",
+        "created_at",
+        "updated_at",
+        "suspended",
+        "first_name",
+        "last_name",
+        "phone",
+        "is_online",
+        "last_seen"
+      ],
+      "column_count": 11
+    },
+    "system_settings": {
+      "exists": true,
+      "row_count": 11,
+      "status": "✅",
+      "sample_columns": [
+        "id",
+        "setting_key",
+        "setting_value",
+        "description",
+        "updated_by",
+        "created_at",
+        "updated_at"
+      ],
+      "column_count": 7
+    },
+    "notifications": {
+      "exists": true,
+      "row_count": 0,
+      "status": "✅"
+    },
+    "school_terms": {
+      "exists": true,
+      "row_count": 0,
+      "status": "✅"
+    },
+    "fine_settings": {
+      "exists": true,
+      "row_count": 7,
+      "status": "✅",
+      "sample_columns": [
+        "id",
+        "fine_type",
+        "amount",
+        "description",
+        "created_at",
+        "updated_at",
+        "synced",
+        "sync_version",
+        "deleted"
+      ],
+      "column_count": 9
+    }
+  },
+  "local_schema": {
+    "categories": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": true
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "created_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "updated_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "synced",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "sync_version",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "1",
+          "primary_key": false
+        },
+        {
+          "name": "deleted",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        }
+      ],
+      "row_count": 28,
+      "column_count": 8
+    },
+    "books": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": true
+        },
+        {
+          "name": "title",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "author",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "isbn",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "genre",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "publisher",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "publication_year",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "total_copies",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "1",
+          "primary_key": false
+        },
+        {
+          "name": "available_copies",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "1",
+          "primary_key": false
+        },
+        {
+          "name": "shelf_location",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "cover_image_url",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "status",
+          "type": "TEXT",
+          "nullable": true,
+          "default": "'available'",
+          "primary_key": false
+        },
+        {
+          "name": "category_id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "created_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "updated_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "condition",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "book_code",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "acquisition_year",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "2024",
+          "primary_key": false
+        },
+        {
+          "name": "legacy_book_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "legacy_isbn",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "supplier_type",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "supplier_name",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "synced",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "sync_version",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "1",
+          "primary_key": false
+        },
+        {
+          "name": "deleted",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        }
+      ],
+      "row_count": 2627,
+      "column_count": 26
+    },
+    "book_copies": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "BIGINT",
+          "nullable": true,
+          "default": null,
+          "primary_key": true
+        },
+        {
+          "name": "book_id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "isbn",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "title",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "author",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "publisher",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "publication_year",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "copy_identifier",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "copy_number",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "book_code",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "tracking_code",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "acquisition_date",
+          "type": "TEXT",
+          "nullable": true,
+          "default": "date('now')",
+          "primary_key": false
+        },
+        {
+          "name": "condition",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "status",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "location",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "department_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "current_borrower_id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "borrowed_at",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "due_date",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "legacy_book_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "created_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "updated_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "synced",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "sync_version",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "1",
+          "primary_key": false
+        },
+        {
+          "name": "deleted",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        }
+      ],
+      "row_count": 152954,
+      "column_count": 26
+    },
+    "classes": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": true
+        },
+        {
+          "name": "class_name",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "form_level",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "class_section",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "max_books_allowed",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "2",
+          "primary_key": false
+        },
+        {
+          "name": "is_active",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "1",
+          "primary_key": false
+        },
+        {
+          "name": "created_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "updated_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "academic_level_type",
+          "type": "TEXT",
+          "nullable": true,
+          "default": "'form'",
+          "primary_key": false
+        },
+        {
+          "name": "synced",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "sync_version",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "1",
+          "primary_key": false
+        },
+        {
+          "name": "deleted",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        }
+      ],
+      "row_count": 60,
+      "column_count": 12
+    },
+    "students": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": true
+        },
+        {
+          "name": "admission_number",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "first_name",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "last_name",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "email",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "phone",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "class_grade",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "address",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "date_of_birth",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "enrollment_date",
+          "type": "TEXT",
+          "nullable": true,
+          "default": "date('now')",
+          "primary_key": false
+        },
+        {
+          "name": "status",
+          "type": "TEXT",
+          "nullable": true,
+          "default": "'active'",
+          "primary_key": false
+        },
+        {
+          "name": "created_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "updated_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "class_id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "academic_year",
+          "type": "TEXT",
+          "nullable": true,
+          "default": "'2024/2025'",
+          "primary_key": false
+        },
+        {
+          "name": "is_repeating",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "legacy_student_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "synced",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "sync_version",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "1",
+          "primary_key": false
+        },
+        {
+          "name": "deleted",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        }
+      ],
+      "row_count": 5889,
+      "column_count": 20
+    },
+    "staff": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": true
+        },
+        {
+          "name": "staff_id",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "staff_number",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "first_name",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "last_name",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "email",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "phone",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "department",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "position",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "hire_date",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "status",
+          "type": "TEXT",
+          "nullable": true,
+          "default": "'active'",
+          "primary_key": false
+        },
+        {
+          "name": "created_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "updated_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "legacy_staff_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "synced",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "sync_version",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "1",
+          "primary_key": false
+        },
+        {
+          "name": "deleted",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        }
+      ],
+      "row_count": 241,
+      "column_count": 17
+    },
+    "borrowings": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": true
+        },
+        {
+          "name": "student_id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "book_id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "borrowed_date",
+          "type": "TEXT",
+          "nullable": true,
+          "default": "date('now')",
+          "primary_key": false
+        },
+        {
+          "name": "due_date",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "returned_date",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "status",
+          "type": "TEXT",
+          "nullable": true,
+          "default": "'active'",
+          "primary_key": false
+        },
+        {
+          "name": "fine_amount",
+          "type": "REAL",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "issued_by",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "returned_by",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "created_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "updated_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "fine_paid",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "book_copy_id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "condition_at_issue",
+          "type": "TEXT",
+          "nullable": true,
+          "default": "'good'",
+          "primary_key": false
+        },
+        {
+          "name": "condition_at_return",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "is_lost",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "tracking_code",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "return_notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "copy_condition",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "group_borrowing_id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "borrower_type",
+          "type": "TEXT",
+          "nullable": true,
+          "default": "'student'",
+          "primary_key": false
+        },
+        {
+          "name": "staff_id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "borrowing_type",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "long_term_period",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "short_term_period",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "is_long_term",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "synced",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "sync_version",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "1",
+          "primary_key": false
+        },
+        {
+          "name": "deleted",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        }
+      ],
+      "row_count": 24802,
+      "column_count": 31
+    },
+    "group_borrowings": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": true
+        },
+        {
+          "name": "book_id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "book_copy_id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "tracking_code",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "borrowed_date",
+          "type": "TEXT",
+          "nullable": true,
+          "default": "date('now')",
+          "primary_key": false
+        },
+        {
+          "name": "due_date",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "returned_date",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "condition_at_issue",
+          "type": "TEXT",
+          "nullable": true,
+          "default": "'good'",
+          "primary_key": false
+        },
+        {
+          "name": "condition_at_return",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "fine_amount",
+          "type": "REAL",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "fine_paid",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "return_notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "status",
+          "type": "TEXT",
+          "nullable": true,
+          "default": "'active'",
+          "primary_key": false
+        },
+        {
+          "name": "is_lost",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "student_count",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "1",
+          "primary_key": false
+        },
+        {
+          "name": "issued_by",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "returned_by",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "created_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "updated_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "student_ids",
+          "type": "TEXT",
+          "nullable": true,
+          "default": "'[]'",
+          "primary_key": false
+        },
+        {
+          "name": "synced",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "sync_version",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "1",
+          "primary_key": false
+        },
+        {
+          "name": "deleted",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        }
+      ],
+      "row_count": 2,
+      "column_count": 24
+    },
+    "fines": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": true
+        },
+        {
+          "name": "student_id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "borrowing_id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "fine_type",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "amount",
+          "type": "REAL",
+          "nullable": false,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "status",
+          "type": "TEXT",
+          "nullable": true,
+          "default": "'unpaid'",
+          "primary_key": false
+        },
+        {
+          "name": "created_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "updated_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "created_by",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "borrower_type",
+          "type": "TEXT",
+          "nullable": true,
+          "default": "'student'",
+          "primary_key": false
+        },
+        {
+          "name": "staff_id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "synced",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "sync_version",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "1",
+          "primary_key": false
+        },
+        {
+          "name": "deleted",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        }
+      ],
+      "row_count": 0,
+      "column_count": 15
+    },
+    "fine_settings": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": true
+        },
+        {
+          "name": "fine_type",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "amount",
+          "type": "REAL",
+          "nullable": false,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "created_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "updated_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "synced",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "sync_version",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "1",
+          "primary_key": false
+        },
+        {
+          "name": "deleted",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        }
+      ],
+      "row_count": 7,
+      "column_count": 9
+    },
+    "theft_reports": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": true
+        },
+        {
+          "name": "student_id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "book_id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "book_copy_id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "borrowing_id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "expected_tracking_code",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "returned_tracking_code",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "theft_reason",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "reported_date",
+          "type": "TEXT",
+          "nullable": true,
+          "default": "date('now')",
+          "primary_key": false
+        },
+        {
+          "name": "reported_by",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "status",
+          "type": "TEXT",
+          "nullable": true,
+          "default": "'reported'",
+          "primary_key": false
+        },
+        {
+          "name": "investigation_notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "resolved_date",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "resolved_by",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "created_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "updated_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "synced",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "sync_version",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "1",
+          "primary_key": false
+        },
+        {
+          "name": "deleted",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        }
+      ],
+      "row_count": 0,
+      "column_count": 19
+    },
+    "user_sessions": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": true
+        },
+        {
+          "name": "user_id",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "email",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "access_token",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "refresh_token",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "expires_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "user_metadata",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "role",
+          "type": "TEXT",
+          "nullable": true,
+          "default": "'user'",
+          "primary_key": false
+        },
+        {
+          "name": "created_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "updated_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "last_activity",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "session_valid",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "1",
+          "primary_key": false
+        },
+        {
+          "name": "offline_expiry",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "device_fingerprint",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        }
+      ],
+      "row_count": 84,
+      "column_count": 14
+    },
+    "sync_log": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": true
+        },
+        {
+          "name": "table_name",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "record_id",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "operation",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "timestamp",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "synced",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "retry_count",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "error_message",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "payload",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        }
+      ],
+      "row_count": 728,
+      "column_count": 9
+    },
+    "sync_state": {
+      "columns": [
+        {
+          "name": "table_name",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": true
+        },
+        {
+          "name": "last_sync",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "sync_token",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "total_records",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "synced_records",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        }
+      ],
+      "row_count": 14,
+      "column_count": 5
+    },
+    "sync_conflicts": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": true
+        },
+        {
+          "name": "table_name",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "record_id",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "local_data",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "remote_data",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "conflict_type",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "created_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "resolved",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "resolution_strategy",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        }
+      ],
+      "row_count": 0,
+      "column_count": 9
+    },
+    "profiles": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": true
+        },
+        {
+          "name": "user_id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "email",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "first_name",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "last_name",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "phone",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "role",
+          "type": "TEXT",
+          "nullable": true,
+          "default": "'user'",
+          "primary_key": false
+        },
+        {
+          "name": "suspended",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "is_online",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "last_seen",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "created_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "updated_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "synced",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "sync_version",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "1",
+          "primary_key": false
+        },
+        {
+          "name": "deleted",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        }
+      ],
+      "row_count": 0,
+      "column_count": 15
+    },
+    "system_settings": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": true
+        },
+        {
+          "name": "setting_key",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "setting_value",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "updated_by",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "created_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "updated_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "synced",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "sync_version",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "1",
+          "primary_key": false
+        },
+        {
+          "name": "deleted",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        }
+      ],
+      "row_count": 0,
+      "column_count": 10
+    },
+    "school_terms": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": true
+        },
+        {
+          "name": "term_name",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "start_date",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "end_date",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "primary_key": false
+        },
+        {
+          "name": "is_active",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "created_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "updated_at",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "datetime('now')",
+          "primary_key": false
+        },
+        {
+          "name": "synced",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        },
+        {
+          "name": "sync_version",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "1",
+          "primary_key": false
+        },
+        {
+          "name": "deleted",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "primary_key": false
+        }
+      ],
+      "row_count": 0,
+      "column_count": 10
+    }
+  },
+  "comparison": {
+    "local_tables": 18,
+    "supabase_tables": 15,
+    "mismatches": [
+      {
+        "table": "user_sessions",
+        "issue": "Table does not exist in Supabase",
+        "local_columns": 14,
+        "local_rows": 84
+      },
+      {
+        "table": "sync_log",
+        "issue": "Table does not exist in Supabase",
+        "local_columns": 9,
+        "local_rows": 728
+      },
+      {
+        "table": "sync_state",
+        "issue": "Table does not exist in Supabase",
+        "local_columns": 5,
+        "local_rows": 14
+      },
+      {
+        "table": "sync_conflicts",
+        "issue": "Table does not exist in Supabase",
+        "local_columns": 9,
+        "local_rows": 0
+      },
+      {
+        "table": "profiles",
+        "issue": "Column mismatch",
+        "missing_in_remote": [
+          "user_id",
+          "synced",
+          "sync_version",
+          "deleted"
+        ],
+        "extra_in_remote": [],
+        "local_rows": 0,
+        "remote_rows": 7
+      },
+      {
+        "table": "system_settings",
+        "issue": "Column mismatch",
+        "missing_in_remote": [
+          "synced",
+          "sync_version",
+          "deleted"
+        ],
+        "extra_in_remote": [],
+        "local_rows": 0,
+        "remote_rows": 11
+      }
+    ],
+    "data_comparison": {
+      "categories": {
+        "local_rows": 28,
+        "remote_rows": 28,
+        "exists_remote": true,
+        "local_columns": 8,
+        "remote_columns": 8
+      },
+      "books": {
+        "local_rows": 2627,
+        "remote_rows": 2627,
+        "exists_remote": true,
+        "local_columns": 26,
+        "remote_columns": 26
+      },
+      "book_copies": {
+        "local_rows": 152954,
+        "remote_rows": 72783,
+        "exists_remote": true,
+        "local_columns": 26,
+        "remote_columns": 26
+      },
+      "classes": {
+        "local_rows": 60,
+        "remote_rows": 60,
+        "exists_remote": true,
+        "local_columns": 12,
+        "remote_columns": 12
+      },
+      "students": {
+        "local_rows": 5889,
+        "remote_rows": 5889,
+        "exists_remote": true,
+        "local_columns": 20,
+        "remote_columns": 20
+      },
+      "staff": {
+        "local_rows": 241,
+        "remote_rows": 241,
+        "exists_remote": true,
+        "local_columns": 17,
+        "remote_columns": 17
+      },
+      "borrowings": {
+        "local_rows": 24802,
+        "remote_rows": 13869,
+        "exists_remote": true,
+        "local_columns": 31,
+        "remote_columns": 31
+      },
+      "group_borrowings": {
+        "local_rows": 2,
+        "remote_rows": 2,
+        "exists_remote": true,
+        "local_columns": 24,
+        "remote_columns": 24
+      },
+      "fines": {
+        "local_rows": 0,
+        "remote_rows": 1,
+        "exists_remote": true,
+        "local_columns": 15,
+        "remote_columns": 15
+      },
+      "fine_settings": {
+        "local_rows": 7,
+        "remote_rows": 7,
+        "exists_remote": true,
+        "local_columns": 9,
+        "remote_columns": 9
+      },
+      "theft_reports": {
+        "local_rows": 0,
+        "remote_rows": 0,
+        "exists_remote": true,
+        "local_columns": 19,
+        "remote_columns": 0
+      },
+      "user_sessions": {
+        "local_rows": 84,
+        "remote_rows": 0,
+        "exists_remote": false,
+        "local_columns": 14,
+        "remote_columns": 0
+      },
+      "sync_log": {
+        "local_rows": 728,
+        "remote_rows": 0,
+        "exists_remote": false,
+        "local_columns": 9,
+        "remote_columns": 0
+      },
+      "sync_state": {
+        "local_rows": 14,
+        "remote_rows": 0,
+        "exists_remote": false,
+        "local_columns": 5,
+        "remote_columns": 0
+      },
+      "sync_conflicts": {
+        "local_rows": 0,
+        "remote_rows": 0,
+        "exists_remote": false,
+        "local_columns": 9,
+        "remote_columns": 0
+      },
+      "profiles": {
+        "local_rows": 0,
+        "remote_rows": 7,
+        "exists_remote": true,
+        "local_columns": 15,
+        "remote_columns": 11
+      },
+      "system_settings": {
+        "local_rows": 0,
+        "remote_rows": 11,
+        "exists_remote": true,
+        "local_columns": 10,
+        "remote_columns": 7
+      },
+      "school_terms": {
+        "local_rows": 0,
+        "remote_rows": 0,
+        "exists_remote": true,
+        "local_columns": 10,
+        "remote_columns": 0
+      }
+    },
+    "summary": {}
+  },
+  "borrowings_analysis": {
+    "local": {
+      "total": 24802,
+      "synced": 24802,
+      "unsynced": 0,
+      "active": 6512,
+      "returned": 18290
+    },
+    "remote_count": 13869,
+    "unsynced_sample": []
+  }
+}

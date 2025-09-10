@@ -109,15 +109,20 @@ processed_students.csv
 # Shell scripts
 *.sh
 
-# SQL files (except schema)
+# SQL files (except schema and important fixes)
 *.sql
 !src-tauri/migrations/*.sql
 !src-tauri/src/database/schema.sql
+# Keep important constraint fix scripts
+!fix-*-constraints.sql
+!remove-all-book-copies-constraints.sql
 
 # Markdown files (except README and docs)
 *.md
 !README.md
 !docs/*.md
+# Keep important analysis reports
+!SUPABASE_SCHEMA_ANALYSIS_REPORT.md
 
 # HTML test files
 *.html
@@ -128,6 +133,10 @@ processed_students.csv
 !postcss.config.js
 !tailwind.config.js
 !vite.config.ts
+# Keep important sync scripts
+!sync-*.js
+!check-*.js
+!mcp-supabase-analyzer.js
 
 # Rust backup files
 *.rs.backup

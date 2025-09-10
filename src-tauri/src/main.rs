@@ -501,6 +501,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             search_book_copy_by_tracking,
             search_book_copy_by_id,
             search_student_by_admission,
+            search_staff_borrowings,
             get_next_legacy_book_id,
             
             // Database maintenance commands
@@ -522,6 +523,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             commands::reports::get_popular_books,
             commands::reports::get_class_borrowing_report,
             commands::reports::get_fine_reports,
+            commands::reports::get_lost_books,
+            commands::reports::get_theft_reports,
         ])
         .setup(move |app| {
             let _setup_start = std::time::Instant::now();

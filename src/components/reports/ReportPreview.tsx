@@ -87,8 +87,8 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
             index + 1,
             b.book?.title || b.title || 'Unknown Book',
             b.book?.author || b.author || 'Unknown Author',
-            b.book?.category_name || b.category_name || 'Unknown Category',
-            b.borrowCount || b.count || 0
+            b.book?.category || b.category || 'Unknown Category',
+            b.borrowCount || b.borrow_count || b.count || 0
           ])
         };
 

@@ -459,3 +459,244 @@ pub async fn get_fine_reports(
         "total": results.len()
     }))
 }
+
+#[tauri::command]
+pub async fn get_lost_books(
+    state: State<'_, DatabaseState>,
+) -> Result<Value, String> {
+    let conn = state.get_connection().lock().map_err(|e| format!("Database lock error: {}", e))?;
+    
+    let query = "SELECT 
+        bc.id,
+        bc.tracking_code,
+        bc.copy_number,
+        bc.status,
+        bc.condition,
+        bc.notes,
+        bc.updated_at as lost_date,
+        b.id as book_id,
+        b.title,
+        b.author,
+        b.isbn,
+        b.book_code,
+        br.id as borrowing_id,
+        br.fine_amount,
+        br.borrowed_date,
+        br.due_date,
+        br.is_lost,
+        s.id as student_id,
+        s.first_name,
+        s.last_name,
+        s.admission_number,
+        s.class_grade
+    FROM book_copies bc
+    INNER JOIN books b ON bc.book_id = b.id AND (b.deleted = 0 OR b.deleted IS NULL)
+    LEFT JOIN borrowings br ON bc.id = br.book_copy_id AND br.is_lost = 1 AND (br.deleted = 0 OR br.deleted IS NULL)
+    LEFT JOIN students s ON br.student_id = s.id AND (s.deleted = 0 OR s.deleted IS NULL)
+    WHERE (bc.status = 'lost' OR br.is_lost = 1) 
+      AND (bc.deleted = 0 OR bc.deleted IS NULL)
+    ORDER BY bc.updated_at DESC";
+    
+    let mut stmt = conn.prepare(query).map_err(|e| format!("Query prepare error: {}", e))?;
+    
+    let rows = stmt.query_map([], |row| {
+        Ok(json!({
+            "id": row.get::<_, String>(0)?,
+            "tracking_code": row.get::<_, Option<String>>(1)?,
+            "copy_number": row.get::<_, Option<i32>>(2)?,
+            "status": row.get::<_, String>(3)?,
+            "condition": row.get::<_, String>(4)?,
+            "notes": row.get::<_, Option<String>>(5)?,
+            "lost_date": row.get::<_, String>(6)?,
+            "borrowing_id": row.get::<_, Option<String>>(12)?,
+            "fine_amount": row.get::<_, Option<f64>>(13)?,
+            "borrowed_date": row.get::<_, Option<String>>(14)?,
+            "due_date": row.get::<_, Option<String>>(15)?,
+            "is_lost": row.get::<_, Option<bool>>(16)?,
+            "books": {
+                "id": row.get::<_, String>(7)?,
+                "title": row.get::<_, String>(8)?,
+                "author": row.get::<_, Option<String>>(9)?,
+                "isbn": row.get::<_, Option<String>>(10)?,
+                "book_code": row.get::<_, Option<String>>(11)?
+            },
+            "students": if row.get::<_, Option<String>>(17)?.is_some() {
+                Some(json!({
+                    "id": row.get::<_, Option<String>>(17)?,
+                    "first_name": row.get::<_, Option<String>>(18)?,
+                    "last_name": row.get::<_, Option<String>>(19)?,
+                    "admission_number": row.get::<_, Option<String>>(20)?,
+                    "class_grade": row.get::<_, Option<String>>(21)?
+                }))
+            } else {
+                None
+            },
+            "type": if row.get::<_, Option<String>>(12)?.is_some() { "lost_borrowing" } else { "lost_copy" }
+        }))
+    }).map_err(|e| format!("Query execution error: {}", e))?;
+    
+    let mut results = Vec::new();
+    for row in rows {
+        results.push(row.map_err(|e| format!("Row processing error: {}", e))?);
+    }
+    
+    Ok(json!({
+        "success": true,
+        "data": results,
+        "total": results.len()
+    }))
+}
+
+#[tauri::command]
+pub async fn get_theft_reports(
+    state: State<'_, DatabaseState>,
+) -> Result<Value, String> {
+    let conn = state.get_connection().lock().map_err(|e| format!("Database lock error: {}", e))?;
+    
+    // Check if theft_reports table exists
+    let table_exists: bool = conn.query_row(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='theft_reports'",
+        [],
+        |row| row.get::<_, i32>(0).map(|count| count > 0)
+    ).unwrap_or(false);
+    
+    if !table_exists {
+        return Ok(json!({
+            "success": true,
+            "data": [],
+            "total": 0,
+            "message": "Theft reports table not available"
+        }));
+    }
+    
+    let query = "SELECT 
+        tr.id,
+        tr.student_id,
+        tr.book_id,
+        tr.book_copy_id,
+        tr.borrowing_id,
+        tr.expected_tracking_code,
+        tr.returned_tracking_code,
+        tr.theft_reason,
+        tr.reported_date,
+        tr.reported_by,
+        tr.status,
+        tr.investigation_notes,
+        tr.resolved_date,
+        tr.resolved_by,
+        tr.created_at,
+        tr.updated_at,
+        -- Victim (student whose book was stolen)
+        s.id as victim_id,
+        s.first_name as victim_first_name,
+        s.last_name as victim_last_name,
+        s.admission_number as victim_admission_number,
+        s.class_grade as victim_class_grade,
+        -- Book details
+        b.id as book_id,
+        b.title as book_title,
+        b.author as book_author,
+        b.book_code,
+        -- Book copy details
+        bc.id as copy_id,
+        bc.copy_number,
+        bc.tracking_code,
+        -- Borrowing details (perpetrator info)
+        br.id as borrowing_id,
+        br.issued_by,
+        br.borrowed_date,
+        -- Perpetrator (student who stole the book)
+        s2.id as perpetrator_id,
+        s2.first_name as perpetrator_first_name,
+        s2.last_name as perpetrator_last_name,
+        s2.admission_number as perpetrator_admission_number,
+        s2.class_grade as perpetrator_class_grade
+    FROM theft_reports tr
+    LEFT JOIN students s ON tr.student_id = s.id AND (s.deleted = 0 OR s.deleted IS NULL)
+    LEFT JOIN books b ON tr.book_id = b.id AND (b.deleted = 0 OR b.deleted IS NULL)
+    LEFT JOIN book_copies bc ON tr.book_copy_id = bc.id AND (bc.deleted = 0 OR bc.deleted IS NULL)
+    LEFT JOIN borrowings br ON tr.borrowing_id = br.id AND (br.deleted = 0 OR br.deleted IS NULL)
+    LEFT JOIN students s2 ON br.student_id = s2.id AND (s2.deleted = 0 OR s2.deleted IS NULL)
+    WHERE (tr.deleted = 0 OR tr.deleted IS NULL)
+    ORDER BY tr.created_at DESC";
+    
+    let mut stmt = conn.prepare(query).map_err(|e| format!("Query prepare error: {}", e))?;
+    
+    let rows = stmt.query_map([], |row| {
+        Ok(json!({
+            "id": row.get::<_, String>(0)?,
+            "student_id": row.get::<_, Option<String>>(1)?,
+            "book_id": row.get::<_, Option<String>>(2)?,
+            "book_copy_id": row.get::<_, Option<String>>(3)?,
+            "borrowing_id": row.get::<_, Option<String>>(4)?,
+            "expected_tracking_code": row.get::<_, String>(5)?,
+            "returned_tracking_code": row.get::<_, String>(6)?,
+            "theft_reason": row.get::<_, Option<String>>(7)?,
+            "reported_date": row.get::<_, String>(8)?,
+            "reported_by": row.get::<_, Option<String>>(9)?,
+            "status": row.get::<_, String>(10)?,
+            "investigation_notes": row.get::<_, Option<String>>(11)?,
+            "resolved_date": row.get::<_, Option<String>>(12)?,
+            "resolved_by": row.get::<_, Option<String>>(13)?,
+            "created_at": row.get::<_, String>(14)?,
+            "updated_at": row.get::<_, Option<String>>(15)?,
+            "students": if row.get::<_, Option<String>>(16)?.is_some() {
+                Some(json!({
+                    "id": row.get::<_, Option<String>>(16)?,
+                    "first_name": row.get::<_, Option<String>>(17)?,
+                    "last_name": row.get::<_, Option<String>>(18)?,
+                    "admission_number": row.get::<_, Option<String>>(19)?,
+                    "class_grade": row.get::<_, Option<String>>(20)?
+                }))
+            } else {
+                None
+            },
+            "books": {
+                "id": row.get::<_, Option<String>>(21)?,
+                "title": row.get::<_, Option<String>>(22)?,
+                "author": row.get::<_, Option<String>>(23)?,
+                "book_code": row.get::<_, Option<String>>(24)?
+            },
+            "book_copies": if row.get::<_, Option<String>>(25)?.is_some() {
+                Some(json!({
+                    "id": row.get::<_, Option<String>>(25)?,
+                    "copy_number": row.get::<_, Option<i32>>(26)?,
+                    "tracking_code": row.get::<_, Option<String>>(27)?
+                }))
+            } else {
+                None
+            },
+            "borrowings": if row.get::<_, Option<String>>(28)?.is_some() {
+                Some(json!({
+                    "id": row.get::<_, Option<String>>(28)?,
+                    "issued_by": row.get::<_, Option<String>>(29)?,
+                    "borrowed_date": row.get::<_, Option<String>>(30)?,
+                    "students": if row.get::<_, Option<String>>(31)?.is_some() {
+                        Some(json!({
+                            "id": row.get::<_, Option<String>>(31)?,
+                            "first_name": row.get::<_, Option<String>>(32)?,
+                            "last_name": row.get::<_, Option<String>>(33)?,
+                            "admission_number": row.get::<_, Option<String>>(34)?,
+                            "class_grade": row.get::<_, Option<String>>(35)?
+                        }))
+                    } else {
+                        None
+                    }
+                }))
+            } else {
+                None
+            }
+        }))
+    }).map_err(|e| format!("Query execution error: {}", e))?;
+    
+    let mut results = Vec::new();
+    for row in rows {
+        results.push(row.map_err(|e| format!("Row processing error: {}", e))?);
+    }
+    
+    Ok(json!({
+        "success": true,
+        "data": results,
+        "total": results.len()
+    }))
+}
