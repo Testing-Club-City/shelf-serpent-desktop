@@ -4,11 +4,11 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Book, Users, FileText, Calendar, Loader2, Crown, Settings, BarChart3, GraduationCap, Monitor } from 'lucide-react';
+import { Book, Users, FileText, Calendar, Loader2, Crown, Settings, BarChart3, GraduationCap } from 'lucide-react';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useProfile } from '@/hooks/useProfile';
 import type { TabType } from './Dashboard';
-import { WindowManagementTest } from '@/components/WindowManagementTest';
+
 
 interface DashboardOverviewProps {
   onTabChange: (tab: TabType) => void;
@@ -205,17 +205,7 @@ export const DashboardOverview = ({ onTabChange, onQuickAction }: DashboardOverv
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center space-x-2">
-            <Monitor className="w-5 h-5 text-blue-600" />
-            <CardTitle>Window Management</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <WindowManagementTest />
-        </CardContent>
-      </Card>
+
 
       {isAdmin && (
         <Card className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">

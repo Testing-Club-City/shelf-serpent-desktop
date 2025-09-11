@@ -6,28 +6,28 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { 
-  Search, 
-  BarChart3, 
-  BookOpen, 
-  Users, 
-  User, 
-  FileText, 
-  Crown, 
-  Menu, 
-  X, 
-  Settings, 
+import {
+  Search,
+  BarChart3,
+  BookOpen,
+  Users,
+  User,
+  FileText,
+  Crown,
+  Menu,
+  X,
+  Settings,
   LogOut,
-  RefreshCw 
+  RefreshCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 
 import ConnectionStatus from '@/components/ConnectionStatus';
@@ -47,7 +47,7 @@ import SyncStatusIndicator from '../sync/SyncStatusIndicator';
 import { useProfile } from '@/hooks/useProfile';
 import { useOfflineAuth } from '@/hooks/useOfflineAuth';
 import { useSystemSettings, getSchoolNameFromSettings } from '@/hooks/useSystemSettings';
-import WindowsContextMenu from '@/components/WindowsContextMenu';
+
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 
@@ -60,18 +60,18 @@ export const Dashboard = () => {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  
+
   // Detail view states
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [selectedBook, setSelectedBook] = useState<any>(null);
   const [selectedBorrowing, setSelectedBorrowing] = useState<any>(null);
-  
+
   // Quick action states for direct navigation
   const [openAddBookForm, setOpenAddBookForm] = useState(false);
   const [openAddStudentForm, setOpenAddStudentForm] = useState(false);
   const [borrowingInitialTab, setBorrowingInitialTab] = useState('overview');
   const [adminInitialTab, setAdminInitialTab] = useState('overview');
-  
+
   const { data: profile } = useProfile();
   const { logout } = useOfflineAuth();
   const { data: systemSettings, isLoading: settingsLoading, refetch: refetchSettings } = useSystemSettings();
@@ -91,23 +91,23 @@ export const Dashboard = () => {
       if (event.key === 'F11') {
         event.preventDefault();
         invoke('toggle_fullscreen')
-          .then(() => {})
+          .then(() => { })
           .catch(console.error);
       }
-      
+
       // Ctrl + Plus to zoom in
       if (event.ctrlKey && event.key === '+') {
         event.preventDefault();
         invoke('zoom_in')
-          .then(() => {})
+          .then(() => { })
           .catch(console.error);
       }
-      
+
       // Ctrl + Minus to zoom out
       if (event.ctrlKey && event.key === '-') {
         event.preventDefault();
         invoke('zoom_out')
-          .then(() => {})
+          .then(() => { })
           .catch(console.error);
       }
     };
@@ -124,7 +124,7 @@ export const Dashboard = () => {
           const isNowFullscreen = event.payload as boolean;
           console.log('Fullscreen state changed:', isNowFullscreen);
           setIsFullscreen(isNowFullscreen);
-          
+
           // Apply CSS classes to body for fullscreen adjustments
           if (isNowFullscreen) {
             document.body.classList.add('fullscreen-mode');
@@ -134,18 +134,18 @@ export const Dashboard = () => {
             document.documentElement.classList.remove('fullscreen-mode');
           }
         });
-        
+
         return unlisten;
       } catch (error) {
         console.error('Failed to setup fullscreen listener:', error);
       }
     };
-    
+
     let unlisten: (() => void) | undefined;
     setupFullscreenListener().then((unlistenFn) => {
       unlisten = unlistenFn;
     });
-    
+
     return () => {
       if (unlisten) {
         unlisten();
@@ -166,13 +166,13 @@ export const Dashboard = () => {
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
     setSidebarOpen(false); // Close sidebar on mobile when tab is selected
-    
+
     // Clear any open detail views when changing tabs
     setSelectedStudent(null);
     setSelectedBook(null);
     setSelectedBorrowing(null);
 
-    
+
     // Reset quick action states only when switching away from respective tabs
     if (tab !== 'books') {
       setOpenAddBookForm(false);
@@ -227,11 +227,11 @@ export const Dashboard = () => {
 
   return (
     <TooltipProvider>
-      <WindowsContextMenu className="app-viewport bg-gray-50 flex">
+      <div className="app-viewport bg-gray-50 flex">
         <div className="flex w-full h-full">
           {/* Mobile Sidebar Overlay */}
           {sidebarOpen && (
-            <div 
+            <div
               className="absolute inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
               onClick={() => setSidebarOpen(false)}
             />
@@ -244,18 +244,31 @@ export const Dashboard = () => {
             lg:static inset-y-0 left-0 z-30
             w-64 bg-white shadow-lg border-r border-gray-200 flex flex-col h-full
           `}>
-            {/* Simplified Sidebar Header */}
+            {/* Kisii School Sidebar Header */}
             <div className="p-6 border-b border-gray-200 bg-white">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                    <Search className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <h1 className="text-lg font-bold text-gray-900">
-                      {settingsLoading ? 'Loading...' : schoolName}
-                    </h1>
-                    <p className="text-xs text-gray-600">Library Management</p>
+                  {/* Tamnet Systems Logo */}
+                  <img
+                    src="/Tamnet Logo.png"
+                    alt="Tamnet Systems Logo"
+                    className="w-12 h-12 rounded-lg object-contain shadow-md"
+                  />
+                  <div className="flex flex-col">
+                    <div className="mb-1">
+                      <h1 className="text-lg font-bold text-gray-900 leading-none tracking-tight">
+                        Kisii School
+                      </h1>
+                      <h2 className="text-sm font-semibold text-blue-700 leading-none mt-0.5">
+                        Library System
+                      </h2>
+                    </div>
+                    <div className="mt-1 pt-1 border-t border-gray-100">
+                      <p className="text-xs italic leading-none">
+                        <span className="text-blue-600 font-normal">Powered by </span>
+                        <span className="text-orange-600 font-semibold tracking-wide">TAMNET</span>
+                      </p>
+                    </div>
                   </div>
                 </div>
                 <Button
@@ -274,11 +287,10 @@ export const Dashboard = () => {
               <div className="space-y-1">
                 <button
                   onClick={() => handleTabChange('overview')}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${
-                    activeTab === 'overview'
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'overview'
                       ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
                       : 'text-gray-700 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   <BarChart3 className={`w-5 h-5 ${activeTab === 'overview' ? 'text-blue-600' : 'text-gray-500'}`} />
                   <span className="font-medium">Overview</span>
@@ -286,11 +298,10 @@ export const Dashboard = () => {
 
                 <button
                   onClick={() => handleTabChange('books')}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${
-                    activeTab === 'books'
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'books'
                       ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
                       : 'text-gray-700 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   <BookOpen className={`w-5 h-5 ${activeTab === 'books' ? 'text-blue-600' : 'text-gray-500'}`} />
                   <span className="font-medium">Books</span>
@@ -298,11 +309,10 @@ export const Dashboard = () => {
 
                 <button
                   onClick={() => handleTabChange('students')}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${
-                    activeTab === 'students'
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'students'
                       ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
                       : 'text-gray-700 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   <Users className={`w-5 h-5 ${activeTab === 'students' ? 'text-blue-600' : 'text-gray-500'}`} />
                   <span className="font-medium">Students</span>
@@ -310,11 +320,10 @@ export const Dashboard = () => {
 
                 <button
                   onClick={() => handleTabChange('staff')}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${
-                    activeTab === 'staff'
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'staff'
                       ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
                       : 'text-gray-700 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   <User className={`w-5 h-5 ${activeTab === 'staff' ? 'text-blue-600' : 'text-gray-500'}`} />
                   <span className="font-medium">Staff</span>
@@ -322,11 +331,10 @@ export const Dashboard = () => {
 
                 <button
                   onClick={() => handleTabChange('borrowing')}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${
-                    activeTab === 'borrowing'
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'borrowing'
                       ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
                       : 'text-gray-700 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   <FileText className={`w-5 h-5 ${activeTab === 'borrowing' ? 'text-blue-600' : 'text-gray-500'}`} />
                   <span className="font-medium">Borrowing</span>
@@ -334,11 +342,10 @@ export const Dashboard = () => {
 
                 <button
                   onClick={() => handleTabChange('reports')}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${
-                    activeTab === 'reports'
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'reports'
                       ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
                       : 'text-gray-700 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   <BarChart3 className={`w-5 h-5 ${activeTab === 'reports' ? 'text-blue-600' : 'text-gray-500'}`} />
                   <span className="font-medium">Reports</span>
@@ -346,11 +353,10 @@ export const Dashboard = () => {
 
                 <button
                   onClick={() => handleTabChange('profile')}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${
-                    activeTab === 'profile'
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'profile'
                       ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
                       : 'text-gray-700 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   <User className={`w-5 h-5 ${activeTab === 'profile' ? 'text-blue-600' : 'text-gray-500'}`} />
                   <span className="font-medium">Profile</span>
@@ -358,11 +364,10 @@ export const Dashboard = () => {
 
                 <button
                   onClick={() => handleTabChange('sync')}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${
-                    activeTab === 'sync'
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'sync'
                       ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
                       : 'text-gray-700 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   <RefreshCw className={`w-5 h-5 ${activeTab === 'sync' ? 'text-blue-600' : 'text-gray-500'}`} />
                   <span className="font-medium">Sync</span>
@@ -380,11 +385,10 @@ export const Dashboard = () => {
                     </div>
                     <button
                       onClick={() => handleTabChange('admin')}
-                      className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${
-                        activeTab === 'admin'
+                      className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'admin'
                           ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
                           : 'text-gray-700 hover:bg-gray-50'
-                      }`}
+                        }`}
                     >
                       <Crown className={`w-5 h-5 ${activeTab === 'admin' ? 'text-blue-600' : 'text-gray-500'}`} />
                       <span className="font-medium">Admin Panel</span>
@@ -406,14 +410,14 @@ export const Dashboard = () => {
               <div className="flex items-center space-x-4">
                 <h2 className="text-lg font-semibold text-gray-900 capitalize">{activeTab}</h2>
               </div>
-              
+
               <div className="flex items-center space-x-4">
                 {/* Connection Status */}
                 <ConnectionStatus showDetails={false} />
-                
+
                 {/* Sync Status */}
                 <SyncStatusIndicator showDetails={false} />
-                
+
                 {/* Profile Dropdown */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -446,33 +450,33 @@ export const Dashboard = () => {
                 </DropdownMenu>
               </div>
             </div>
-            
+
             {/* Content Container */}
             <div className="flex-1 p-6 overflow-auto min-h-[calc(100vh-4rem)]">
               <div className="max-w-7xl mx-auto">
                 {/* Tab Content - Show detail views when items are selected */}
                 {selectedStudent && (
                   <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-                    <StudentDetails 
-                      student={selectedStudent} 
+                    <StudentDetails
+                      student={selectedStudent}
                       onBack={handleBackToMain}
                     />
                   </div>
                 )}
-                
+
                 {selectedBook && (
                   <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-                    <BookDetails 
-                      book={selectedBook} 
+                    <BookDetails
+                      book={selectedBook}
                       onClose={handleBackToMain}
                     />
                   </div>
                 )}
-                
+
                 {selectedBorrowing && (
                   <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-                    <BorrowingDetails 
-                      borrowing={selectedBorrowing} 
+                    <BorrowingDetails
+                      borrowing={selectedBorrowing}
                       onBack={handleBackToMain}
                       onUpdate={() => {
                         // Refresh borrowing data if needed
@@ -480,33 +484,33 @@ export const Dashboard = () => {
                     />
                   </div>
                 )}
-                
+
                 {/* Main Tab Content */}
                 {!selectedStudent && !selectedBook && !selectedBorrowing && (
                   <div className="space-y-6">
                     {activeTab === 'overview' && (
-                      <DashboardOverview 
+                      <DashboardOverview
                         onTabChange={handleTabChange}
                         onQuickAction={handleQuickAction}
                       />
                     )}
                     {activeTab === 'books' && (
-                      <BookManagement 
+                      <BookManagement
                         searchTerm=""
                         openAddBookForm={openAddBookForm}
                       />
                     )}
                     {activeTab === 'students' && (
-                      <StudentManagement 
+                      <StudentManagement
                         openAddStudentForm={openAddStudentForm}
                       />
                     )}
                     {activeTab === 'staff' && (
-                      <StaffManagement 
+                      <StaffManagement
                       />
                     )}
                     {activeTab === 'borrowing' && (
-                      <BorrowingManagement 
+                      <BorrowingManagement
                         initialTab={borrowingInitialTab}
                       />
                     )}
@@ -517,7 +521,7 @@ export const Dashboard = () => {
                       <ProfileForm />
                     )}
                     {activeTab === 'admin' && (
-                      <AdminPanel 
+                      <AdminPanel
                         initialTab={adminInitialTab}
                       />
                     )}
@@ -531,7 +535,7 @@ export const Dashboard = () => {
             </div>
           </div>
         </div>
-      </WindowsContextMenu>
+      </div>
     </TooltipProvider>
   );
 };

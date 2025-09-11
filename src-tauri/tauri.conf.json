@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Library Management System",
+  "productName": "Kisii School Library System",
   "version": "1.0.0",
-  "identifier": "com.library.management",
+  "identifier": "com.tamnet.kisiischool.library",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://127.0.0.1:1421",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Library Management System",
+        "title": "Kisii School Library System",
         "width": 1280,
         "height": 720,
         "minWidth": 800,
@@ -57,10 +57,10 @@
     ],
     "resources": ["migrations/*"],
     "externalBin": [],
-    "copyright": "© 2025 Shelf Serpent Library Management",
+    "copyright": "© 2025 Tamnet Systems - Kisii School Library",
     "category": "Productivity",
-    "shortDescription": "Professional Library Management System",
-    "longDescription": "A high-performance desktop library management system with barcode scanning, offline capabilities, and real-time synchronization.",
+    "shortDescription": "Kisii School Library Management System",
+    "longDescription": "Professional library management system for Kisii School, featuring barcode scanning, offline capabilities, and real-time synchronization. Powered by Tamnet Systems.",
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",

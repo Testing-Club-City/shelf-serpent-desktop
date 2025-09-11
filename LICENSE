@@ -1,43 +1,130 @@
-MIT License
+KISII SCHOOL LIBRARY MANAGEMENT SYSTEM
+SOFTWARE LICENSE AGREEMENT
 
-Copyright (c) 2025 Shelf Serpent Desktop - Library Management System
+Copyright (c) 2025 Tamnet Systems Ltd. All Rights Reserved.
+Developed exclusively for Kisii School, Kenya.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+================================================================================
+                              COMMERCIAL SOFTWARE LICENSE
+================================================================================
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+This is a PAID, PROPRIETARY SOFTWARE PRODUCT developed by Tamnet Systems Ltd.
+specifically for Kisii School. This software is NOT free and is protected by
+copyright law and international treaties.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+LICENSED TO: Kisii School
+DEVELOPER: Tamnet Systems Ltd.
+PRODUCT: Kisii School Library Management System
+VERSION: 1.0.0
+LICENSE TYPE: Single Institution License
 
-ADDITIONAL TERMS FOR LIBRARY MANAGEMENT SYSTEM:
+================================================================================
+                                  GRANT OF LICENSE
+================================================================================
 
-This software is designed for educational institutions and libraries to manage
-their book collections, student records, and borrowing systems. The software
-includes features for:
+Subject to the terms and conditions of this Agreement, Tamnet Systems Ltd. grants
+Kisii School a non-exclusive, non-transferable license to use this software solely
+for the internal library management operations of Kisii School.
 
-- Book catalog management
-- Student registration and management
-- Book borrowing and return tracking
-- Fine calculation and collection
-- Offline-first operation with cloud synchronization
-- Barcode scanning integration
-- Comprehensive reporting
+PERMITTED USES:
+✓ Installation and use on Kisii School premises
+✓ Management of Kisii School's library collection
+✓ Student and staff borrowing management
+✓ Generation of library reports and statistics
+✓ Data backup and recovery operations
 
-The software is provided free of charge for educational and non-commercial use.
-For commercial licensing, please contact the development team.
+================================================================================
+                                   RESTRICTIONS
+================================================================================
 
-DISCLAIMER:
-This software is provided for library management purposes. Users are responsible
-for ensuring compliance with local data protection laws and regulations when
-handling student and library data.
+You MAY NOT:
+✗ Copy, distribute, or share this software with other institutions
+✗ Reverse engineer, decompile, or disassemble the software
+✗ Remove or modify copyright notices or licensing information
+✗ Use the software for commercial purposes outside Kisii School
+✗ Transfer this license to another institution without written consent
+✗ Create derivative works based on this software
+
+================================================================================
+                                 PRODUCT FEATURES
+================================================================================
+
+This professional library management system includes:
+
+• Advanced Book Catalog Management
+• Student & Staff Registration System
+• Intelligent Borrowing & Return Tracking
+• Automated Fine Calculation & Collection
+• Barcode Scanning Integration
+• Offline-First Operation with Cloud Sync
+• Comprehensive Reporting & Analytics
+• Multi-User Access Control
+• Data Export & Backup Capabilities
+• Professional Receipt & Report Generation
+
+================================================================================
+                              SUPPORT & MAINTENANCE
+================================================================================
+
+Tamnet Systems Ltd. provides:
+• Technical support during business hours
+• Software updates and bug fixes
+• Data migration assistance
+• Staff training and documentation
+• System maintenance and optimization
+
+Support Contact: support@tamnetsystems.co.ke
+Website: www.tamnetsystems.co.ke
+
+================================================================================
+                                   OWNERSHIP
+================================================================================
+
+This software is the exclusive property of Tamnet Systems Ltd. Kisii School
+receives only a license to use the software, not ownership rights. All
+intellectual property rights remain with Tamnet Systems Ltd.
+
+================================================================================
+                                   WARRANTY
+================================================================================
+
+Tamnet Systems Ltd. warrants that the software will perform substantially in
+accordance with the documentation for a period of 12 months from installation.
+This warranty is limited to software defects and does not cover misuse or
+unauthorized modifications.
+
+================================================================================
+                                  LIMITATION OF LIABILITY
+================================================================================
+
+IN NO EVENT SHALL TAMNET SYSTEMS LTD. BE LIABLE FOR ANY INDIRECT, INCIDENTAL,
+SPECIAL, OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OF THIS SOFTWARE,
+EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+================================================================================
+                                   TERMINATION
+================================================================================
+
+This license is effective until terminated. Tamnet Systems Ltd. may terminate
+this license immediately if Kisii School breaches any terms of this agreement.
+Upon termination, all copies of the software must be destroyed.
+
+================================================================================
+                                GOVERNING LAW
+================================================================================
+
+This agreement is governed by the laws of Kenya. Any disputes shall be resolved
+in the courts of Kenya.
+
+================================================================================
+
+By installing this software, you acknowledge that you have read this license
+agreement, understand it, and agree to be bound by its terms and conditions.
+
+For licensing inquiries or to purchase additional licenses, contact:
+Tamnet Systems Ltd.
+Email: licensing@tamnetsystems.co.ke
+Phone: +254 XXX XXX XXX
+
+© 2025 Tamnet Systems Ltd. All Rights Reserved.
+Kisii School Library Management System - Professional Edition

@@ -2,195 +2,251 @@ import { invoke } from '@tauri-apps/api/core';
 import { downloadDir } from '@tauri-apps/api/path';
 import jsPDF from 'jspdf';
 
+// Function to convert image to base64 for PDF
+const getLogoBase64 = async (): Promise<string | null> => {
+  try {
+    // Try to load the logo from the workspace
+    const response = await fetch('./kisiischool_logo.png');
+    if (!response.ok) {
+      console.warn('Could not load school logo');
+      return null;
+    }
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.warn('Error loading school logo:', error);
+    return null;
+  }
+};
+
 // Enhanced Professional PDF generation without autoTable dependency
-const generateSimplePDF = (data: any, title: string, reportType: string): Blob => {
+const generateSimplePDF = async (data: any, title: string, reportType: string): Promise<Blob> => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   let yPosition = 20;
-  
-  // Header with blue background effect
-  doc.setFillColor(37, 99, 235); // Blue color
+
+  // Load school logo
+  const logoBase64 = await getLogoBase64();
+
+  // Professional header with school logo and branding
+  doc.setFillColor(248, 250, 252); // Light gray background
   doc.rect(0, 0, pageWidth, 50, 'F');
-  
-  // White title text
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(24);
-  doc.setFont('helvetica', 'bold');
-  doc.text(title, 20, 30);
-  
-  // Subtitle
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Generated on: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`, 20, 42);
-  
+
+  // Add school logo if available
+  if (logoBase64) {
+    try {
+      // Add logo on the left side (30x30 size)
+      doc.addImage(logoBase64, 'PNG', 15, 12, 25, 25);
+
+      // School name next to logo
+      doc.setTextColor(31, 41, 55); // Dark gray
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('KISII SCHOOL LIBRARY', 45, 22);
+
+      // Report title
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'normal');
+      doc.text(title.toUpperCase(), 45, 35);
+    } catch (error) {
+      console.warn('Error adding logo to PDF:', error);
+      // Fallback to text-only header
+      doc.setTextColor(31, 41, 55);
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('KISII SCHOOL LIBRARY', 20, 22);
+
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'normal');
+      doc.text(title.toUpperCase(), 20, 35);
+    }
+  } else {
+    // Text-only header if logo not available
+    doc.setTextColor(31, 41, 55);
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('KISII SCHOOL LIBRARY', 20, 22);
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'normal');
+    doc.text(title.toUpperCase(), 20, 35);
+  }
+
+  // Generation date only (no time)
+  doc.setFontSize(9);
+  doc.setTextColor(107, 114, 128); // Medium gray
+  doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - 80, 22);
+
   // Reset text color for body
   doc.setTextColor(0, 0, 0);
-  yPosition = 70;
-  
-  // Helper function to add section headers
+  yPosition = 60;
+
+  // Helper function to add professional section headers
   const addSectionHeader = (text: string) => {
     if (yPosition > pageHeight - 30) {
       doc.addPage();
       yPosition = 20;
     }
-    doc.setFillColor(240, 245, 255);
+    doc.setFillColor(229, 231, 235); // Professional gray
     doc.rect(15, yPosition - 5, pageWidth - 30, 15, 'F');
-    doc.setFontSize(16);
+    doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(37, 99, 235);
-    doc.text(text, 20, yPosition + 5);
+    doc.setTextColor(31, 41, 55); // Dark professional color
+    doc.text(text.toUpperCase(), 20, yPosition + 5);
     doc.setTextColor(0, 0, 0);
     doc.setFont('helvetica', 'normal');
     yPosition += 25;
   };
-  
+
   // Helper function to add a data row with alternating background
   const addDataRow = (label: string, value: string, isAlternate = false) => {
     if (yPosition > pageHeight - 20) {
       doc.addPage();
       yPosition = 20;
     }
-    
+
     if (isAlternate) {
       doc.setFillColor(248, 250, 252);
       doc.rect(15, yPosition - 3, pageWidth - 30, 12, 'F');
     }
-    
+
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.text(label + ':', 20, yPosition + 5);
     doc.setFont('helvetica', 'normal');
-    
+
     // Wrap long text
     const maxWidth = pageWidth - 100;
     const wrappedText = doc.splitTextToSize(value, maxWidth);
     doc.text(wrappedText, 80, yPosition + 5);
-    
+
     yPosition += Math.max(12, wrappedText.length * 6);
   };
-  
+
   // Helper function to create a professional table
   const addTable = (headers: string[], rows: string[][], title?: string) => {
     if (title) {
       addSectionHeader(title);
     }
-    
+
     const colWidth = (pageWidth - 40) / headers.length;
     const rowHeight = 12;
-    
+
     // Table headers
     if (yPosition > pageHeight - 30) {
       doc.addPage();
       yPosition = 20;
     }
-    
+
     doc.setFillColor(37, 99, 235);
     doc.rect(20, yPosition, pageWidth - 40, rowHeight, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    
+
     headers.forEach((header, index) => {
       doc.text(header, 22 + (index * colWidth), yPosition + 8);
     });
-    
+
     yPosition += rowHeight;
     doc.setTextColor(0, 0, 0);
     doc.setFont('helvetica', 'normal');
-    
+
     // Table rows
     rows.forEach((row, rowIndex) => {
       if (yPosition > pageHeight - 20) {
         doc.addPage();
         yPosition = 20;
       }
-      
+
       // Alternating row colors
       if (rowIndex % 2 === 0) {
         doc.setFillColor(248, 250, 252);
         doc.rect(20, yPosition, pageWidth - 40, rowHeight, 'F');
       }
-      
+
       row.forEach((cell, colIndex) => {
         const cellText = doc.splitTextToSize(cell, colWidth - 4);
         doc.text(cellText, 22 + (colIndex * colWidth), yPosition + 8);
       });
-      
+
       yPosition += rowHeight;
     });
-    
+
     yPosition += 10;
   };
-  
+
   // Generate content based on report type
   switch (reportType) {
     case 'library_summary':
       const { totalBooks, totalBorrowings, activeBorrowings, overdueCount, popularBooks, recentBorrowings } = data;
-      
-      // Summary Statistics Section
-      addSectionHeader('📊 Library Statistics Overview');
-      
-      doc.setFillColor(254, 249, 195); // Light yellow background for stats
+
+      // Summary Statistics Section (no redundant header)
+      doc.setFillColor(248, 250, 252); // Professional light background
       doc.rect(20, yPosition - 5, pageWidth - 40, 60, 'F');
-      
+
       doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(146, 64, 14); // Brown color for numbers
-      
+      doc.setTextColor(31, 41, 55); // Professional dark color
+
       doc.text(`${totalBooks || 0}`, 30, yPosition + 10);
       doc.text(`${totalBorrowings || 0}`, 30, yPosition + 25);
       doc.text(`${activeBorrowings || 0}`, 30, yPosition + 40);
       doc.text(`${overdueCount || 0}`, 30, yPosition + 55);
-      
+
       doc.setFontSize(11);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(0, 0, 0);
-      
+
       doc.text('Total Books in Library', 80, yPosition + 10);
       doc.text('Total Borrowings (All Time)', 80, yPosition + 25);
       doc.text('Currently Active Borrowings', 80, yPosition + 40);
       doc.text('Overdue Books', 80, yPosition + 55);
-      
+
       yPosition += 75;
-      
+
       // Popular Books Table
       if (popularBooks && popularBooks.length > 0) {
         const popularRows = popularBooks.map((item: any, index: number) => [
-          `#${index + 1}`,
+          `${index + 1}`,
           item.book?.title || 'Unknown Book',
           item.book?.author || 'Unknown Author',
-          `${item.borrowCount || 0} times`
+          `${item.borrowCount || 0}`
         ]);
-        
-        addTable(['Rank', 'Book Title', 'Author', 'Borrowed'], popularRows, '📚 Most Popular Books');
+
+        addTable(['Rank', 'Book Title', 'Author', 'Times Borrowed'], popularRows, 'MOST POPULAR BOOKS');
       }
-      
+
       // Recent Borrowings Table
       if (recentBorrowings && recentBorrowings.length > 0) {
         const recentRows = recentBorrowings.map((item: any) => [
           item.student?.class_grade || 'Unknown Class',
-          item.student?.first_name && item.student?.last_name 
+          item.student?.first_name && item.student?.last_name
             ? `${item.student.first_name} ${item.student.last_name}`
             : 'Unknown Student',
           item.student?.admission_number || 'N/A',
           item.book?.title || 'Unknown Book',
           item.legacy_book_id || 'N/A',
           new Date(item.borrowed_date).toLocaleDateString(),
-          item.status === 'active' ? '📖 Active' : '✅ Returned'
+          item.status === 'active' ? 'Active' : 'Returned'
         ]);
-        
-        addTable(['Class', 'Student Name', 'Admission No.', 'Book Title', 'Legacy Book ID', 'Borrowed Date', 'Status'], recentRows, '🕒 Recent Borrowing Activity');
+
+        addTable(['Class', 'Student Name', 'Admission No.', 'Book Title', 'Legacy Book ID', 'Borrowed Date', 'Status'], recentRows, 'RECENT BORROWING ACTIVITY');
       }
       break;
-      
+
     case 'borrowing_history':
       const { borrowings, returnedBooks, studentsInvolved } = data;
-      addSectionHeader('📖 Borrowing History Report');
-      
+
       if (borrowings && borrowings.length > 0) {
         // Summary with calculated statistics
-        doc.setFillColor(240, 253, 244);
+        doc.setFillColor(248, 250, 252);
         doc.rect(20, yPosition - 5, pageWidth - 40, 45, 'F');
         doc.setFontSize(12);
         doc.text(`Total Records: ${data.totalBorrowings || borrowings.length}`, 25, yPosition + 5);
@@ -199,10 +255,10 @@ const generateSimplePDF = (data: any, title: string, reportType: string): Blob =
         doc.text(`Students Involved: ${studentsInvolved || new Set(borrowings.map((b: any) => b.student_id).filter(id => id)).size}`, 25, yPosition + 35);
         doc.text(`Date Range: ${data.reportPeriod || 'All Time'}`, 25, yPosition + 45);
         yPosition += 55;
-        
+
         const borrowingRows = borrowings.map((item: any) => [
           item.student?.class_grade || 'Unknown Class',
-          item.student?.first_name && item.student?.last_name 
+          item.student?.first_name && item.student?.last_name
             ? `${item.student.first_name} ${item.student.last_name}`
             : 'Unknown Student',
           item.student?.admission_number || 'N/A',
@@ -210,39 +266,38 @@ const generateSimplePDF = (data: any, title: string, reportType: string): Blob =
           item.legacy_book_id || 'N/A',
           new Date(item.borrowed_date).toLocaleDateString(),
           new Date(item.due_date).toLocaleDateString(),
-          item.status === 'active' ? '📖 Active' : 
-          item.status === 'returned' ? '✅ Returned' : 
-          item.status === 'overdue' ? '⚠️ Overdue' : item.status
+          item.status === 'active' ? 'Active' :
+            item.status === 'returned' ? 'Returned' :
+              item.status === 'overdue' ? 'Overdue' : item.status
         ]);
-        
+
         addTable(['Class', 'Student Name', 'Admission No.', 'Book Title', 'Legacy Book ID', 'Borrowed', 'Due Date', 'Status'], borrowingRows);
       } else {
-        doc.setFillColor(254, 242, 242);
+        doc.setFillColor(248, 250, 252);
         doc.rect(20, yPosition - 5, pageWidth - 40, 20, 'F');
         doc.text('No borrowing records found for the selected criteria.', 25, yPosition + 5);
       }
       break;
-      
+
     case 'overdue_books':
       const { overdueBooks } = data;
-      addSectionHeader('⚠️ Overdue Books Report');
-      
+
       if (overdueBooks && overdueBooks.length > 0) {
-        // Summary with red background for urgency
-        doc.setFillColor(254, 242, 242);
+        // Summary with professional styling
+        doc.setFillColor(248, 250, 252);
         doc.rect(20, yPosition - 5, pageWidth - 40, 25, 'F');
         doc.setFontSize(12);
-        doc.setTextColor(185, 28, 28);
-        doc.text(`⚠️ ${overdueBooks.length} overdue books found`, 25, yPosition + 5);
+        doc.setTextColor(31, 41, 55);
+        doc.text(`${overdueBooks.length} overdue books found`, 25, yPosition + 5);
         doc.setTextColor(0, 0, 0);
         doc.text(`Report generated: ${data.reportPeriod || new Date().toLocaleDateString()}`, 25, yPosition + 15);
         yPosition += 35;
-        
+
         const overdueRows = overdueBooks.map((item: any) => {
           const daysOverdue = Math.floor((new Date().getTime() - new Date(item.due_date).getTime()) / (1000 * 60 * 60 * 24));
           return [
             item.student?.class_grade || 'Unknown Class',
-            item.student?.first_name && item.student?.last_name 
+            item.student?.first_name && item.student?.last_name
               ? `${item.student.first_name} ${item.student.last_name}`
               : 'Unknown Student',
             item.student?.admission_number || 'N/A',
@@ -252,113 +307,105 @@ const generateSimplePDF = (data: any, title: string, reportType: string): Blob =
             `${daysOverdue} days`
           ];
         });
-        
+
         addTable(['Class', 'Student Name', 'Admission No.', 'Book Title', 'Legacy Book ID', 'Due Date', 'Days Overdue'], overdueRows);
       } else {
-        doc.setFillColor(240, 253, 244);
+        doc.setFillColor(248, 250, 252);
         doc.rect(20, yPosition - 5, pageWidth - 40, 20, 'F');
-        doc.text('✅ Great! No overdue books found.', 25, yPosition + 5);
+        doc.text('No overdue books found.', 25, yPosition + 5);
       }
       break;
-      
+
     case 'popular_books':
       const { popularBooks: books } = data;
-      addSectionHeader('⭐ Popular Books Report');
-      
+
       if (books && books.length > 0) {
-        // Summary
-        doc.setFillColor(240, 245, 255);
-        doc.rect(20, yPosition - 5, pageWidth - 40, 25, 'F');
-        doc.setFontSize(12);
-        doc.text(`Showing all ${books.length} books`, 25, yPosition + 5);
-        doc.text(`Based on borrowing history: ${data.reportPeriod || 'All Time'}`, 25, yPosition + 15);
-        yPosition += 35;
-        
+        // Summary without redundant header
+        doc.setFillColor(248, 250, 252);
+        doc.rect(20, yPosition - 5, pageWidth - 40, 20, 'F');
+        doc.setFontSize(11);
+        doc.text(`Showing ${books.length} books based on borrowing history`, 25, yPosition + 8);
+        yPosition += 30;
+
         const popularRows = books.map((book: any, index: number) => {
           const rank = index + 1;
-          let medal = '';
-          if (rank === 1) medal = '🥇';
-          else if (rank === 2) medal = '🥈';
-          else if (rank === 3) medal = '🥉';
-          else medal = `#${rank}`;
-          
+
           return [
-            medal,
+            `${rank}`,
             book.book?.title || book.title || 'Unknown Book',
             book.book?.author || book.author || 'Unknown Author',
             book.book?.category_name || book.category_name || 'General',
-            `${book.borrowCount || 0} times`
+            `${book.borrowCount || 0}`
           ];
         });
-        
+
         addTable(['Rank', 'Book Title', 'Author', 'Category', 'Times Borrowed'], popularRows);
       } else {
-        doc.setFillColor(254, 249, 195);
+        doc.setFillColor(248, 250, 252);
         doc.rect(20, yPosition - 5, pageWidth - 40, 20, 'F');
         doc.text('No popular books data available for the selected period.', 25, yPosition + 5);
       }
       break;
-      
+
     case 'student_activity':
       const { studentActivity } = data;
-      addSectionHeader('👥 Student Activity Report');
-      
+
       if (studentActivity && studentActivity.length > 0) {
         // Summary
-        doc.setFillColor(243, 244, 246);
+        doc.setFillColor(248, 250, 252);
         doc.rect(20, yPosition - 5, pageWidth - 40, 25, 'F');
         doc.setFontSize(12);
         doc.text(`Total Students: ${studentActivity.length}`, 25, yPosition + 5);
-        doc.text(`Showing all ${studentActivity.length} students`, 25, yPosition + 15);
+        doc.text(`Report Period: ${data.reportPeriod || 'All Time'}`, 25, yPosition + 15);
         yPosition += 35;
-        
+
         const studentRows = studentActivity.map((student: any, index: number) => [
           student.class_grade || 'Unknown Class',
-          student.first_name && student.last_name 
+          student.first_name && student.last_name
             ? `${student.first_name} ${student.last_name}`
             : 'Unknown Student',
           student.admission_number || 'N/A',
           `${student.totalBorrowings || student.borrowCount || 0}`,
           `${student.activeBorrowings || 0}`
         ]);
-        
+
         addTable(['Class', 'Student Name', 'Admission No.', 'Total Borrowed', 'Currently Borrowed'], studentRows);
       } else {
-        doc.setFillColor(254, 242, 242);
+        doc.setFillColor(248, 250, 252);
         doc.rect(20, yPosition - 5, pageWidth - 40, 20, 'F');
         doc.text('No student activity data found for the selected criteria.', 25, yPosition + 5);
       }
       break;
-      
+
     default:
-      addSectionHeader(`📋 ${reportType.replace('_', ' ').toUpperCase()} Report`);
+      addSectionHeader(`${reportType.replace('_', ' ').toUpperCase()} REPORT`);
       doc.text('This report contains the following data:', 20, yPosition);
       yPosition += 15;
-      
+
       Object.keys(data).forEach((key, index) => {
         addDataRow(key.replace('_', ' ').toUpperCase(), Array.isArray(data[key]) ? `${data[key].length} items` : String(data[key]), index % 2 === 0);
       });
   }
-  
-  // Footer on all pages
+
+  // Professional footer on all pages
   const totalPages = doc.internal.pages.length - 1;
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
-    doc.setFillColor(245, 245, 245);
+    doc.setFillColor(248, 250, 252);
     doc.rect(0, pageHeight - 20, pageWidth, 20, 'F');
     doc.setFontSize(8);
     doc.setTextColor(107, 114, 128);
-    doc.text(`Library Management System • Page ${i} of ${totalPages}`, 20, pageHeight - 8);
+    doc.text(`Kisii School Library - Page ${i} of ${totalPages}`, 20, pageHeight - 8);
     doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - 80, pageHeight - 8);
   }
-  
+
   return new Blob([doc.output('blob')], { type: 'application/pdf' });
 };
 
 // Professional PDF generation utility with enhanced preview
 export const generatePDFReport = async (data: any, title: string, reportType: string) => {
   console.log('📊 Generating professional report:', { title, reportType, dataKeys: Object.keys(data) });
-  
+
   // Show download notification
   const notification = document.createElement('div');
   notification.innerHTML = `
@@ -366,7 +413,7 @@ export const generatePDFReport = async (data: any, title: string, reportType: st
       <div style="display: flex; align-items: center; gap: 12px;">
         <div style="width: 20px; height: 20px; border: 2px solid white; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
         <div>
-          <div style="font-weight: 600; margin-bottom: 4px;">📄 Generating Report</div>
+          <div style="font-weight: 600; margin-bottom: 4px;">Generating Report</div>
           <div style="font-size: 14px; opacity: 0.9;">${title}</div>
         </div>
       </div>
@@ -376,14 +423,14 @@ export const generatePDFReport = async (data: any, title: string, reportType: st
     </style>
   `;
   document.body.appendChild(notification);
-  
+
   // Auto-remove notification after 10 seconds if something goes wrong
   const timeoutId = setTimeout(() => {
     if (notification.parentNode) {
       notification.innerHTML = `
         <div style="position: fixed; top: 20px; right: 20px; background: #dc2626; color: white; padding: 16px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10000; max-width: 400px;">
           <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="font-size: 20px;">⚠️</div>
+            <div style="font-size: 20px;">!</div>
             <div>
               <div style="font-weight: 600; margin-bottom: 4px;">Generation Timeout</div>
               <div style="font-size: 14px; opacity: 0.9;">Please try again</div>
@@ -398,20 +445,20 @@ export const generatePDFReport = async (data: any, title: string, reportType: st
       }, 3000);
     }
   }, 10000);
-  
+
   try {
     // Create professional HTML document for PDF generation
     const htmlContent = generateHTMLReport(data, title, reportType);
     clearTimeout(timeoutId);
-    
+
     // Try to open popup window
     const printWindow = window.open('', '_blank', 'width=1200,height=900,scrollbars=yes,resizable=yes,menubar=yes,toolbar=yes');
     if (!printWindow) {
       // Generate PDF file instead of HTML
       const fileName = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`;
-      const pdfBlob = generateSimplePDF(data, title, reportType);
+      const pdfBlob = await generateSimplePDF(data, title, reportType);
       const url = URL.createObjectURL(pdfBlob);
-      
+
       // Set up global functions for buttons
       (window as any).__openFile = async (fileName: string) => {
         try {
@@ -423,7 +470,7 @@ export const generatePDFReport = async (data: any, title: string, reportType: st
           window.open(url, '_blank');
         }
       };
-      
+
       (window as any).__openFolder = async () => {
         try {
           const downloadsPath = await downloadDir();
@@ -433,24 +480,24 @@ export const generatePDFReport = async (data: any, title: string, reportType: st
           alert('Could not open downloads folder');
         }
       };
-      
+
       // Save PDF to Downloads folder and trigger download
       try {
         const downloadsPath = await downloadDir();
         const filePath = `${downloadsPath}\\${fileName}`;
-        
+
         // Convert blob to array buffer for Tauri
         const arrayBuffer = await pdfBlob.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
-        
+
         // Save file using Tauri
         await invoke('save_file', { path: filePath, contents: Array.from(uint8Array) });
-        
+
         // Update global functions to use actual file path
         (window as any).__openFile = async () => {
           await invoke('open_file', { path: filePath });
         };
-        
+
         (window as any).__openFolder = async () => {
           await invoke('open_folder', { path: downloadsPath });
         };
@@ -464,12 +511,12 @@ export const generatePDFReport = async (data: any, title: string, reportType: st
         a.click();
         document.body.removeChild(a);
       }
-      
+
       // Update notification for download
       notification.innerHTML = `
         <div style="position: fixed; top: 20px; right: 20px; background: #059669; color: white; padding: 16px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10000; max-width: 400px;">
           <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="font-size: 20px;">📥</div>
+            <div style="font-size: 20px;">↓</div>
             <div style="flex: 1;">
               <div style="font-weight: 600; margin-bottom: 4px;">Report Downloaded</div>
               <div style="font-size: 12px; opacity: 0.8; margin-bottom: 8px;">${fileName}</div>
@@ -481,10 +528,10 @@ export const generatePDFReport = async (data: any, title: string, reportType: st
           </div>
         </div>
       `;
-      
+
       // Don't revoke URL immediately so buttons can use it
       setTimeout(() => URL.revokeObjectURL(url), 10000);
-      
+
       // Remove notification after 5 seconds
       setTimeout(() => {
         if (notification.parentNode) {
@@ -499,7 +546,7 @@ export const generatePDFReport = async (data: any, title: string, reportType: st
       notification.innerHTML = `
         <div style="position: fixed; top: 20px; right: 20px; background: #059669; color: white; padding: 16px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10000; max-width: 400px;">
           <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="font-size: 20px;">🖨️</div>
+            <div style="font-size: 20px;">✓</div>
             <div>
               <div style="font-weight: 600; margin-bottom: 4px;">Report Preview Opened</div>
               <div style="font-size: 14px; opacity: 0.9;">Use Ctrl+P to print or save as PDF</div>
@@ -507,41 +554,41 @@ export const generatePDFReport = async (data: any, title: string, reportType: st
           </div>
         </div>
       `;
-      
+
       // Set window title
       printWindow.document.title = title;
-      
+
       // Write enhanced content to popup window
       printWindow.document.write(htmlContent);
       printWindow.document.close();
-      
+
       // Enhanced window loading with professional features
-      printWindow.onload = function() {
+      printWindow.onload = function () {
         // Add professional toolbar
         const toolbar = printWindow.document.createElement('div');
         toolbar.innerHTML = `
           <div style="position: fixed; top: 0; left: 0; right: 0; background: #2563eb; color: white; padding: 10px; z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
             <div style="display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto;">
-              <h3 style="margin: 0; font-size: 16px;">📊 ${title}</h3>
+              <h3 style="margin: 0; font-size: 16px;">${title}</h3>
               <div>
-                <button onclick="window.print()" style="background: white; color: #2563eb; border: none; padding: 8px 16px; margin-right: 8px; border-radius: 4px; cursor: pointer; font-weight: 500;">🖨️ Print/Save PDF</button>
-                <button onclick="window.close()" style="background: #dc2626; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: 500;">✕ Close</button>
+                <button onclick="window.print()" style="background: white; color: #2563eb; border: none; padding: 8px 16px; margin-right: 8px; border-radius: 4px; cursor: pointer; font-weight: 500;">Print/Save PDF</button>
+                <button onclick="window.close()" style="background: #dc2626; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: 500;">Close</button>
               </div>
             </div>
           </div>
         `;
         printWindow.document.body.insertBefore(toolbar, printWindow.document.body.firstChild);
-        
+
         // Adjust body padding to account for toolbar
         printWindow.document.body.style.paddingTop = '70px';
-        
+
         // Focus window and show success message
         setTimeout(() => {
           printWindow.focus();
           console.log('✅ Professional report preview opened successfully');
         }, 500);
       };
-      
+
       // Remove notification after 4 seconds
       setTimeout(() => {
         if (notification.parentNode) {
@@ -552,12 +599,12 @@ export const generatePDFReport = async (data: any, title: string, reportType: st
       clearTimeout(timeoutId);
       console.error('Error writing to popup window:', error);
       printWindow.close();
-      
+
       // Fallback to download
       const fileName = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`;
-      const pdfBlob = generateSimplePDF(data, title, reportType);
+      const pdfBlob = await generateSimplePDF(data, title, reportType);
       const url = URL.createObjectURL(pdfBlob);
-      
+
       // Set up global functions for buttons
       (window as any).__openFile = async (fileName: string) => {
         try {
@@ -569,7 +616,7 @@ export const generatePDFReport = async (data: any, title: string, reportType: st
           window.open(url, '_blank');
         }
       };
-      
+
       (window as any).__openFolder = async () => {
         try {
           const downloadsPath = await downloadDir();
@@ -579,12 +626,12 @@ export const generatePDFReport = async (data: any, title: string, reportType: st
           alert('Could not open downloads folder');
         }
       };
-      
+
       // Update notification for download fallback
       notification.innerHTML = `
         <div style="position: fixed; top: 20px; right: 20px; background: #059669; color: white; padding: 16px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10000; max-width: 400px;">
           <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="font-size: 20px;">📥</div>
+            <div style="font-size: 20px;">↓</div>
             <div style="flex: 1;">
               <div style="font-weight: 600; margin-bottom: 4px;">Report Downloaded</div>
               <div style="font-size: 12px; opacity: 0.8; margin-bottom: 8px;">${fileName}</div>
@@ -602,10 +649,10 @@ export const generatePDFReport = async (data: any, title: string, reportType: st
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      
+
       // Don't revoke URL immediately so buttons can use it
       setTimeout(() => URL.revokeObjectURL(url), 10000);
-      
+
       // Remove notification after 5 seconds
       setTimeout(() => {
         if (notification.parentNode) {
@@ -617,12 +664,12 @@ export const generatePDFReport = async (data: any, title: string, reportType: st
   } catch (error) {
     clearTimeout(timeoutId);
     console.error('PDF generation error:', error);
-    
+
     // Show error notification
     notification.innerHTML = `
       <div style="position: fixed; top: 20px; right: 20px; background: #dc2626; color: white; padding: 16px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10000; max-width: 400px;">
         <div style="display: flex; align-items: center; gap: 12px;">
-          <div style="font-size: 20px;">❌</div>
+          <div style="font-size: 20px;">X</div>
           <div>
             <div style="font-weight: 600; margin-bottom: 4px;">Generation Error</div>
             <div style="font-size: 14px; opacity: 0.9;">Please try again</div>
@@ -630,7 +677,7 @@ export const generatePDFReport = async (data: any, title: string, reportType: st
         </div>
       </div>
     `;
-    
+
     setTimeout(() => {
       if (notification.parentNode) {
         document.body.removeChild(notification);
@@ -644,9 +691,9 @@ export const generatePDFReport = async (data: any, title: string, reportType: st
 
 const generateHTMLReport = (data: any, title: string, reportType: string): string => {
   const currentDate = new Date().toLocaleDateString();
-  
+
   let content = '';
-  
+
   switch (reportType) {
     case 'borrowing_history':
       content = generateBorrowingHistoryHTML(data);
@@ -696,7 +743,7 @@ const generateHTMLReport = (data: any, title: string, reportType: string): strin
     default:
       content = '<p>Report type not supported</p>';
   }
-  
+
   return `
     <!DOCTYPE html>
     <html lang="en">
@@ -864,25 +911,25 @@ const generateHTMLReport = (data: any, title: string, reportType: string): strin
 
 const generateBorrowingHistoryHTML = (data: any): string => {
   const { borrowings, books, students, totalBorrowings, activeBorrowings, returnedBooks, studentsInvolved } = data;
-  
+
   // Calculate statistics if not provided
   const actualTotalBorrowings = totalBorrowings || borrowings?.length || 0;
   const actualActiveBorrowings = activeBorrowings || borrowings?.filter((b: any) => b.status === 'active').length || 0;
   const actualReturnedBooks = returnedBooks || borrowings?.filter((b: any) => b.status === 'returned').length || 0;
   const actualStudentsInvolved = studentsInvolved || new Set(borrowings?.map((b: any) => b.student_id).filter(id => id)).size || 0;
-  
+
   let rows = '';
   borrowings.forEach((borrowing: any) => {
     const student = students?.find((s: any) => s.id === borrowing.student_id);
     const book = books?.find((b: any) => b.id === borrowing.book_id);
-    
+
     // Get book copy information
-    const bookCopyInfo = borrowing.book_copies 
+    const bookCopyInfo = borrowing.book_copies
       ? `Copy #${borrowing.book_copies.copy_number}${borrowing.book_copies.tracking_code ? ` (${borrowing.book_copies.tracking_code})` : ''}`
-      : borrowing.tracking_code 
+      : borrowing.tracking_code
         ? `General (${borrowing.tracking_code})`
         : 'No copy info';
-    
+
     rows += `
       <tr>
         <td>${student ? `${student.first_name} ${student.last_name}` : 'Unknown'}</td>
@@ -897,7 +944,7 @@ const generateBorrowingHistoryHTML = (data: any): string => {
       </tr>
     `;
   });
-  
+
   return `
     <h2>Borrowing History</h2>
     <div class="stats">
@@ -942,20 +989,20 @@ const generateBorrowingHistoryHTML = (data: any): string => {
 
 const generateOverdueBooksHTML = (data: any): string => {
   const { overdueBooks, books, students } = data;
-  
+
   let rows = '';
   overdueBooks.forEach((borrowing: any) => {
     const student = students?.find((s: any) => s.id === borrowing.student_id);
     const book = books?.find((b: any) => b.id === borrowing.book_id);
     const daysOverdue = Math.floor((new Date().getTime() - new Date(borrowing.due_date).getTime()) / (1000 * 60 * 60 * 24));
-    
+
     // Get book copy information
-    const bookCopyInfo = borrowing.book_copies 
+    const bookCopyInfo = borrowing.book_copies
       ? `Copy #${borrowing.book_copies.copy_number}${borrowing.book_copies.tracking_code ? ` (${borrowing.book_copies.tracking_code})` : ''}`
-      : borrowing.tracking_code 
+      : borrowing.tracking_code
         ? `General (${borrowing.tracking_code})`
         : 'No copy info';
-    
+
     rows += `
       <tr>
         <td>${student ? `${student.first_name} ${student.last_name}` : 'Unknown'}</td>
@@ -967,7 +1014,7 @@ const generateOverdueBooksHTML = (data: any): string => {
       </tr>
     `;
   });
-  
+
   return `
     <h2>Overdue Books Report</h2>
     <p style="color: red; font-weight: bold;">Total Overdue Books: ${overdueBooks.length}</p>
@@ -991,7 +1038,7 @@ const generateOverdueBooksHTML = (data: any): string => {
 
 const generatePopularBooksHTML = (data: any): string => {
   const { popularBooks } = data;
-  
+
   let rows = '';
   popularBooks.forEach((book: any, index: number) => {
     rows += `
@@ -1004,7 +1051,7 @@ const generatePopularBooksHTML = (data: any): string => {
       </tr>
     `;
   });
-  
+
   return `
     <h2>Popular Books Report</h2>
     <p>Top ${popularBooks.length} most borrowed books</p>
@@ -1027,7 +1074,7 @@ const generatePopularBooksHTML = (data: any): string => {
 
 const generateStudentActivityHTML = (data: any): string => {
   const { studentActivity } = data;
-  
+
   let rows = '';
   studentActivity.forEach((student: any) => {
     rows += `
@@ -1040,7 +1087,7 @@ const generateStudentActivityHTML = (data: any): string => {
       </tr>
     `;
   });
-  
+
   return `
     <h2>Student Activity Report</h2>
     <p>Student borrowing statistics (All ${studentActivity.length} students)</p>
@@ -1063,7 +1110,7 @@ const generateStudentActivityHTML = (data: any): string => {
 
 const generateFineCollectionHTML = (data: any): string => {
   const { fineCollection, totalFines, selectedClass, reportDate } = data;
-  
+
   let rows = '';
   fineCollection.forEach((item: any, index: number) => {
     rows += `
@@ -1077,7 +1124,7 @@ const generateFineCollectionHTML = (data: any): string => {
       </tr>
     `;
   });
-  
+
   return `
     <h2>Fine Collection Report</h2>
     <p>Report for ${selectedClass} as of ${reportDate}</p>
@@ -1143,7 +1190,7 @@ const generateFineCollectionHTML = (data: any): string => {
 
 const generateLostBooksHTML = (data: any): string => {
   const { lostBooks, studentLostBooks, totalReplacementCost, selectedClass } = data;
-  
+
   // Generate the books table
   let booksRows = '';
   lostBooks.forEach((book: any) => {
@@ -1176,7 +1223,7 @@ const generateLostBooksHTML = (data: any): string => {
       </tr>
     `;
   });
-  
+
   return `
     <h2>Lost Books Report - ${selectedClass}</h2>
     <div class="stats">
@@ -1240,7 +1287,7 @@ const generateLostBooksHTML = (data: any): string => {
 
 const generateLibrarySummaryHTML = (data: any): string => {
   const { totalBooks, totalStudents, activeBorrowings, overdueBooks, popularBooks, recentBorrowings } = data;
-  
+
   let popularBooksRows = '';
   if (popularBooks && Array.isArray(popularBooks)) {
     popularBooks.forEach((item: any, index: number) => {
@@ -1255,7 +1302,7 @@ const generateLibrarySummaryHTML = (data: any): string => {
       `;
     });
   }
-  
+
   // Add recent borrowings section
   let recentBorrowingsRows = '';
   if (recentBorrowings && Array.isArray(recentBorrowings)) {
@@ -1274,7 +1321,7 @@ const generateLibrarySummaryHTML = (data: any): string => {
       `;
     });
   }
-  
+
   return `
     <h2>Library Summary Report</h2>
     <p><strong>Report Period:</strong> ${data.reportPeriod || 'All Time'}</p>
@@ -1334,13 +1381,13 @@ const generateLibrarySummaryHTML = (data: any): string => {
 
 const generateTheftReportsHTML = (data: any): string => {
   const { theftReports = [], statusStats } = data;
-  
+
   let rows = '';
   theftReports.forEach((report: any, index: number) => {
     const victim = report.students;
     const perpetrator = report.borrowings?.students;
     const totalFines = report.theft_fines?.reduce((sum: number, fine: any) => sum + fine.amount, 0) || 0;
-    
+
     rows += `
       <tr>
         <td>${index + 1}</td>
@@ -1361,7 +1408,7 @@ const generateTheftReportsHTML = (data: any): string => {
       </tr>
     `;
   });
-  
+
   return `
     <h2>Official Theft Investigation Report</h2>
     <p style="color: #666; font-style: italic;">Professional theft incident management and tracking system</p>
@@ -1441,7 +1488,7 @@ const generateTheftReportsHTML = (data: any): string => {
 
 const generateGroupBorrowingsHTML = (data: any): string => {
   const { groupBorrowings, selectedClass } = data;
-  
+
   // Calculate statistics
   const totalBorrowings = groupBorrowings.length;
   const activeBorrowings = groupBorrowings.filter((b: any) => b.status === 'active').length;
@@ -1658,7 +1705,7 @@ const generateGroupBorrowingsHTML = (data: any): string => {
 
 const generateStaffMostBorrowedHTML = (data: any): string => {
   const { staffMostBorrowed } = data;
-  
+
   let staffHTML = '';
   staffMostBorrowed.forEach((staff: any) => {
     let booksRows = '';
@@ -1672,7 +1719,7 @@ const generateStaffMostBorrowedHTML = (data: any): string => {
         </tr>
       `;
     });
-    
+
     staffHTML += `
       <div style="margin-bottom: 30px; border: 1px solid #ddd; padding: 15px; border-radius: 5px;">
         <h3>${staff.staff?.first_name} ${staff.staff?.last_name} - ${staff.staff?.department || 'N/A'}</h3>
@@ -1692,7 +1739,7 @@ const generateStaffMostBorrowedHTML = (data: any): string => {
       </div>
     `;
   });
-  
+
   return `
     <h2>Staff Most Borrowed Books Report</h2>
     ${staffHTML}
@@ -1701,7 +1748,7 @@ const generateStaffMostBorrowedHTML = (data: any): string => {
 
 const generateStaffActivityHTML = (data: any): string => {
   const { staffActivity } = data;
-  
+
   let rows = '';
   staffActivity.forEach((activity: any) => {
     rows += `
@@ -1715,7 +1762,7 @@ const generateStaffActivityHTML = (data: any): string => {
       </tr>
     `;
   });
-  
+
   return `
     <h2>Staff Activity Report</h2>
     <table>
@@ -1738,7 +1785,7 @@ const generateStaffActivityHTML = (data: any): string => {
 
 const generateStaffBorrowingTrendsHTML = (data: any): string => {
   const { staffTrends } = data;
-  
+
   let staffHTML = '';
   staffTrends.forEach((staff: any) => {
     let trendRows = '';
@@ -1750,7 +1797,7 @@ const generateStaffBorrowingTrendsHTML = (data: any): string => {
         </tr>
       `;
     });
-    
+
     staffHTML += `
       <div style="margin-bottom: 30px; border: 1px solid #ddd; padding: 15px; border-radius: 5px;">
         <h3>${staff.staff?.first_name} ${staff.staff?.last_name} - ${staff.staff?.department || 'N/A'}</h3>
@@ -1768,7 +1815,7 @@ const generateStaffBorrowingTrendsHTML = (data: any): string => {
       </div>
     `;
   });
-  
+
   return `
     <h2>Staff Borrowing Trends Report</h2>
     ${staffHTML}
@@ -1777,7 +1824,7 @@ const generateStaffBorrowingTrendsHTML = (data: any): string => {
 
 const generateStaffBorrowingHistoryHTML = (data: any): string => {
   const { staffHistory } = data;
-  
+
   let staffHTML = '';
   staffHistory.forEach((staff: any) => {
     let historyRows = '';
@@ -1793,7 +1840,7 @@ const generateStaffBorrowingHistoryHTML = (data: any): string => {
         </tr>
       `;
     });
-    
+
     staffHTML += `
       <div style="margin-bottom: 30px; border: 1px solid #ddd; padding: 15px; border-radius: 5px;">
         <h3>${staff.staff?.first_name} ${staff.staff?.last_name} - ${staff.staff?.department || 'N/A'}</h3>
@@ -1815,7 +1862,7 @@ const generateStaffBorrowingHistoryHTML = (data: any): string => {
       </div>
     `;
   });
-  
+
   return `
     <h2>Staff Borrowing History Report</h2>
     ${staffHTML}
@@ -1824,7 +1871,7 @@ const generateStaffBorrowingHistoryHTML = (data: any): string => {
 
 const generateBookSuppliersHTML = (data: any): string => {
   const { suppliers } = data;
-  
+
   let rows = '';
   suppliers.forEach((supplier: any, index: number) => {
     rows += `
@@ -1837,7 +1884,7 @@ const generateBookSuppliersHTML = (data: any): string => {
       </tr>
     `;
   });
-  
+
   return `
     <h2>Book Suppliers Report</h2>
     <table>
@@ -1859,7 +1906,7 @@ const generateBookSuppliersHTML = (data: any): string => {
 
 const generateStaffOverdueBooksHTML = (data: any): string => {
   const { overdueBooks } = data;
-  
+
   let rows = '';
   overdueBooks.forEach((borrowing: any, index: number) => {
     rows += `
@@ -1873,7 +1920,7 @@ const generateStaffOverdueBooksHTML = (data: any): string => {
       </tr>
     `;
   });
-  
+
   return `
     <h2>Staff Overdue Books Report</h2>
     <table>
@@ -1893,3 +1940,7 @@ const generateStaffOverdueBooksHTML = (data: any): string => {
     </table>
   `;
 };
+
+
+
+
