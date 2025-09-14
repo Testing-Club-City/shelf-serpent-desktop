@@ -333,6 +333,33 @@ const ProfessionalSyncManager: React.FC = () => {
           onClick={async () => {
             setLoading(true);
             try {
+              const result = await invoke<string>('sync_remaining_book_copies');
+              setLastSyncResult({
+                success: true,
+                message: result
+              });
+              // Don't call loadSyncStatus() to avoid triggering other syncs
+            } catch (error) {
+              console.error('Sync remaining book copies failed:', error);
+              setLastSyncResult({
+                success: false,
+                message: `Sync remaining book copies failed: ${error}`
+              });
+            } finally {
+              setLoading(false);
+            }
+          }}
+          disabled={loading || !connectivity.connected}
+          className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <Download className="h-4 w-4" />
+          <span>Sync Missing Book Copies</span>
+        </button>
+
+        <button
+          onClick={async () => {
+            setLoading(true);
+            try {
               const result = await invoke<SyncResult>('pull_all_database');
               setLastSyncResult(result);
               await loadSyncStatus();

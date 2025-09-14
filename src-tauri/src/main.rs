@@ -423,6 +423,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             sync_staff_only,
             sync_classes_only,
             sync_book_copies_only,
+            sync_remaining_book_copies,
             sync_fines_only,
             sync_fine_settings_only,
             sync_group_borrowings_only,
@@ -502,6 +503,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             search_book_copy_by_id,
             search_student_by_admission,
             search_staff_borrowings,
+            search_student_borrowings,
             get_next_legacy_book_id,
             
             // Database maintenance commands
@@ -513,6 +515,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             open_file,
             open_folder,
             save_file,
+            write_file,
+            import_database,
+            import_selective_tables,
             
             // Report commands
             commands::reports::get_books_by_supplier,

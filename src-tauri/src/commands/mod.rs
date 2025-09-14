@@ -4,7 +4,7 @@ use crate::sync::{SyncEngine, SyncStatus};
 // use crate::auth::{AuthManager, AuthCredentials, AuthResponse, UserSession};
 use serde_json::{Value, json};
 use std::sync::Arc;
-use tauri::{State, Emitter};
+use tauri::{State, Emitter, Manager};
 use uuid::Uuid;
 use tracing::{info, warn, error};
 use chrono::{Duration, Utc};
@@ -13,6 +13,7 @@ use rusqlite;
 use uuid;
 use rand;
 use std::sync::atomic::{AtomicBool, Ordering};
+use dirs;
 
 // Global sync lock
 static SYNC_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
@@ -783,7 +784,7 @@ pub async fn search_staff_borrowings(
         println!("📱 Phone search: {}", trimmed_term);
         ("SELECT b.id as borrowing_id, b.staff_id, b.status, b.borrowed_date, b.due_date,
                  b.returned_date, b.tracking_code, b.notes, b.borrower_type,
-                 bc.title as book_title, bc.author as book_author, bc.copy_identifier,
+                 bc.title as book_title, bc.author as book_author, bc.copy_identifier, bc.legacy_book_id,
                  s.first_name, s.last_name, s.phone, s.staff_number, s.staff_id as staff_number,
                  s.department, s.position
           FROM borrowings b
@@ -799,7 +800,7 @@ pub async fn search_staff_borrowings(
         println!("👤 Name search: {}", trimmed_term);
         ("SELECT b.id as borrowing_id, b.staff_id, b.status, b.borrowed_date, b.due_date,
                  b.returned_date, b.tracking_code, b.notes, b.borrower_type,
-                 bc.title as book_title, bc.author as book_author, bc.copy_identifier,
+                 bc.title as book_title, bc.author as book_author, bc.copy_identifier, bc.legacy_book_id,
                  s.first_name, s.last_name, s.phone, s.staff_number, s.staff_id as staff_number,
                  s.department, s.position
           FROM borrowings b
@@ -815,7 +816,7 @@ pub async fn search_staff_borrowings(
         println!("🏷️ Staff ID search: {}", trimmed_term);
         ("SELECT b.id as borrowing_id, b.staff_id, b.status, b.borrowed_date, b.due_date,
                  b.returned_date, b.tracking_code, b.notes, b.borrower_type,
-                 bc.title as book_title, bc.author as book_author, bc.copy_identifier,
+                 bc.title as book_title, bc.author as book_author, bc.copy_identifier, bc.legacy_book_id,
                  s.first_name, s.last_name, s.phone, s.staff_number, s.staff_id as staff_number,
                  s.department, s.position
           FROM borrowings b
@@ -847,6 +848,10 @@ pub async fn search_staff_borrowings(
                 "author": row.get::<_, Option<String>>("book_author")?,
                 "copy_identifier": row.get::<_, Option<String>>("copy_identifier")?
             },
+            "book_copies": {
+                "copy_identifier": row.get::<_, Option<String>>("copy_identifier")?,
+                "legacy_book_id": row.get::<_, Option<i64>>("legacy_book_id")?
+            },
             "staff": {
                 "first_name": row.get::<_, String>("first_name")?,
                 "last_name": row.get::<_, String>("last_name")?,
@@ -874,6 +879,99 @@ pub async fn search_staff_borrowings(
     
     println!("📚 Found {} staff borrowings", staff_borrowings.len());
     Ok(staff_borrowings)
+}
+
+#[tauri::command]
+pub async fn search_student_borrowings(
+    search_term: String,
+    state: State<'_, DatabaseState>,
+) -> Result<Vec<Value>, String> {
+    let trimmed_term = search_term.trim();
+    if trimmed_term.is_empty() {
+        return Ok(Vec::new());
+    }
+    
+    let conn = state.get_connection().lock().map_err(|e| format!("Database lock error: {}", e))?;
+    
+    // Detect search type for optimized query
+    let (query, search_pattern) = if trimmed_term.chars().all(|c| c.is_ascii_digit()) {
+        // Admission number search (integers only)
+        println!("🎓 Admission number search: {}", trimmed_term);
+        ("SELECT b.id as borrowing_id, b.student_id, b.status, b.borrowed_date, b.due_date,
+                 b.returned_date, b.tracking_code, b.notes, b.borrower_type,
+                 bc.title as book_title, bc.author as book_author, bc.copy_identifier, bc.legacy_book_id,
+                 s.first_name, s.last_name, s.admission_number, s.class_grade
+          FROM borrowings b
+          INNER JOIN students s ON b.student_id = s.id
+          LEFT JOIN book_copies bc ON b.book_copy_id = bc.id
+          WHERE b.status = 'active' AND b.deleted = 0 AND s.deleted = 0
+            AND (b.borrower_type = 'student' OR b.borrower_type IS NULL OR b.student_id IS NOT NULL)
+            AND s.admission_number LIKE ?
+          ORDER BY b.borrowed_date DESC LIMIT 100",
+         format!("%{}%", trimmed_term))
+    } else {
+        // Name search (letters and spaces)
+        println!("👤 Student name search: {}", trimmed_term);
+        ("SELECT b.id as borrowing_id, b.student_id, b.status, b.borrowed_date, b.due_date,
+                 b.returned_date, b.tracking_code, b.notes, b.borrower_type,
+                 bc.title as book_title, bc.author as book_author, bc.copy_identifier, bc.legacy_book_id,
+                 s.first_name, s.last_name, s.admission_number, s.class_grade
+          FROM borrowings b
+          INNER JOIN students s ON b.student_id = s.id
+          LEFT JOIN book_copies bc ON b.book_copy_id = bc.id
+          WHERE b.status = 'active' AND b.deleted = 0 AND s.deleted = 0
+            AND (b.borrower_type = 'student' OR b.borrower_type IS NULL OR b.student_id IS NOT NULL)
+            AND (LOWER(s.first_name) LIKE LOWER(?) OR LOWER(s.last_name) LIKE LOWER(?))
+          ORDER BY b.borrowed_date DESC LIMIT 100",
+         format!("%{}%", trimmed_term))
+    };
+    
+    let mut stmt = conn.prepare_cached(query).map_err(|e| format!("Query prepare error: {}", e))?;
+    
+    let row_mapper = |row: &rusqlite::Row| -> Result<serde_json::Value, rusqlite::Error> {
+        Ok(serde_json::json!({
+            "id": row.get::<_, String>("borrowing_id")?,
+            "student_id": row.get::<_, String>("student_id")?,
+            "status": row.get::<_, String>("status")?,
+            "borrowed_date": row.get::<_, Option<String>>("borrowed_date")?,
+            "due_date": row.get::<_, Option<String>>("due_date")?,
+            "returned_date": row.get::<_, Option<String>>("returned_date")?,
+            "tracking_code": row.get::<_, Option<String>>("tracking_code")?,
+            "notes": row.get::<_, Option<String>>("notes")?,
+            "borrower_type": row.get::<_, Option<String>>("borrower_type")?,
+            "books": {
+                "title": row.get::<_, Option<String>>("book_title")?,
+                "author": row.get::<_, Option<String>>("book_author")?,
+                "copy_identifier": row.get::<_, Option<String>>("copy_identifier")?
+            },
+            "book_copies": {
+                "copy_identifier": row.get::<_, Option<String>>("copy_identifier")?,
+                "legacy_book_id": row.get::<_, Option<i64>>("legacy_book_id")?
+            },
+            "students": {
+                "first_name": row.get::<_, String>("first_name")?,
+                "last_name": row.get::<_, String>("last_name")?,
+                "admission_number": row.get::<_, Option<String>>("admission_number")?,
+                "class_grade": row.get::<_, Option<String>>("class_grade")?
+            }
+        }))
+    };
+
+    let borrowing_rows = if trimmed_term.chars().all(|c| c.is_ascii_digit()) {
+        // Admission number search - single parameter
+        stmt.query_map([&search_pattern], row_mapper)
+    } else {
+        // Name search - two parameters
+        stmt.query_map([&search_pattern, &search_pattern], row_mapper)
+    }.map_err(|e| format!("Query execution error: {}", e))?;
+    
+    let mut student_borrowings = Vec::new();
+    for row_result in borrowing_rows {
+        student_borrowings.push(row_result.map_err(|e| format!("Row processing error: {}", e))?);
+    }
+    
+    println!("📚 Found {} student borrowings", student_borrowings.len());
+    Ok(student_borrowings)
 }
 
 #[tauri::command]
@@ -5126,4 +5224,443 @@ pub async fn save_file(path: String, contents: Vec<u8>) -> Result<(), String> {
     std::fs::write(&path, contents)
         .map_err(|e| format!("Failed to save file: {}", e))?;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn write_file(path: String, contents: Vec<u8>) -> Result<(), String> {
+    std::fs::write(&path, contents)
+        .map_err(|e| format!("Failed to write file: {}", e))?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn import_database(
+    app_handle: tauri::AppHandle,
+    state: State<'_, DatabaseState>,
+) -> Result<Value, String> {
+    use std::fs;
+    use tauri_plugin_dialog::DialogExt;
+    use chrono::Utc;
+    
+    // Open file dialog to select database file
+    let file_path = match app_handle.dialog()
+        .file()
+        .add_filter("Database files", &["db", "sqlite", "sqlite3"])
+        .set_title("Select Database File to Import")
+        .blocking_pick_file() {
+        Some(path) => {
+            match path.as_path() {
+                Some(p) => p.to_path_buf(),
+                None => {
+                    return Ok(json!({
+                        "success": false,
+                        "message": "Invalid file path selected"
+                    }));
+                }
+            }
+        },
+        None => {
+            return Ok(json!({
+                "success": false,
+                "message": "No file selected"
+            }));
+        }
+    };
+    
+    // Validate the selected file
+    if !file_path.exists() {
+        return Ok(json!({
+            "success": false,
+            "message": "Selected file does not exist"
+        }));
+    }
+    
+    // Get the current database path - use the same logic as main.rs
+    let app_data_dir = if cfg!(target_os = "windows") {
+        dirs::data_dir()
+            .expect("Failed to get data directory")
+            .join("library-management-system")
+    } else {
+        dirs::data_dir()
+            .expect("Failed to get data directory")
+            .join("library-management-system")
+    };
+    
+    let current_db_path = app_data_dir.join("library.db");
+    
+    // Create backup of current database
+    let backup_path = app_data_dir.join(format!("library_backup_{}.db", Utc::now().format("%Y%m%d_%H%M%S")));
+    
+    if current_db_path.exists() {
+        if let Err(e) = fs::copy(&current_db_path, &backup_path) {
+            return Ok(json!({
+                "success": false,
+                "message": format!("Failed to create backup: {}", e)
+            }));
+        }
+    }
+    
+    // Replace current database with selected file
+    if let Err(e) = fs::copy(&file_path, &current_db_path) {
+        return Ok(json!({
+            "success": false,
+            "message": format!("Failed to import database: {}", e)
+        }));
+    }
+    
+    Ok(json!({
+        "success": true,
+        "message": "Database imported successfully. Please restart the application.",
+        "backup_path": backup_path.to_string_lossy()
+    }))
+}
+
+#[tauri::command]
+pub async fn import_selective_tables(
+    app_handle: tauri::AppHandle,
+    tables: Vec<String>,
+    _state: State<'_, DatabaseState>,
+) -> Result<Value, String> {
+    use std::collections::HashMap;
+    use tauri_plugin_dialog::DialogExt;
+    
+    // Open file dialog to select source database file
+    let source_db_path = match app_handle.dialog()
+        .file()
+        .add_filter("Database files", &["db", "sqlite", "sqlite3"])
+        .set_title("Select Source Database File")
+        .blocking_pick_file() {
+        Some(path) => {
+            match path.as_path() {
+                Some(p) => p.to_path_buf(),
+                None => {
+                    return Ok(json!({
+                        "success": false,
+                        "message": "Invalid file path selected"
+                    }));
+                }
+            }
+        },
+        None => {
+            return Ok(json!({
+                "success": false,
+                "message": "No file selected"
+            }));
+        }
+    };
+    
+    // Validate the selected file
+    if !source_db_path.exists() {
+        return Ok(json!({
+            "success": false,
+            "message": "Selected file does not exist"
+        }));
+    }
+    
+    // Get the current database path - use the same logic as main.rs
+    let app_data_dir = if cfg!(target_os = "windows") {
+        dirs::data_dir()
+            .expect("Failed to get data directory")
+            .join("library-management-system")
+    } else {
+        dirs::data_dir()
+            .expect("Failed to get data directory")
+            .join("library-management-system")
+    };
+    
+    let current_db_path = app_data_dir.join("library.db");
+    
+    let mut imported_counts: HashMap<String, i32> = HashMap::new();
+    let mut skipped_counts: HashMap<String, i32> = HashMap::new();
+    
+    // Open both databases
+    let source_conn = match rusqlite::Connection::open(&source_db_path) {
+        Ok(conn) => conn,
+        Err(e) => {
+            return Ok(json!({
+                "success": false,
+                "message": format!("Failed to open source database: {}", e)
+            }));
+        }
+    };
+    
+    let target_conn = match rusqlite::Connection::open(&current_db_path) {
+        Ok(conn) => conn,
+        Err(e) => {
+            return Ok(json!({
+                "success": false,
+                "message": format!("Failed to open target database: {}", e)
+            }));
+        }
+    };
+    
+    // Import each selected table
+    for table_name in &tables {
+        match import_table_data_direct(&source_conn, &target_conn, table_name) {
+            Ok((imported, skipped)) => {
+                imported_counts.insert(table_name.clone(), imported);
+                skipped_counts.insert(table_name.clone(), skipped);
+            }
+            Err(e) => {
+                return Ok(json!({
+                    "success": false,
+                    "message": format!("Failed to import table {}: {}", table_name, e)
+                }));
+            }
+        }
+    }
+    
+    let total_imported: i32 = imported_counts.values().sum();
+    let total_skipped: i32 = skipped_counts.values().sum();
+    
+    Ok(json!({
+        "success": true,
+        "message": format!("Imported {} records, skipped {} existing records", total_imported, total_skipped),
+        "imported_counts": imported_counts,
+        "skipped_counts": skipped_counts
+    }))
+}
+
+fn import_table_data_direct(
+    source_conn: &rusqlite::Connection,
+    target_conn: &rusqlite::Connection,
+    table_name: &str,
+) -> Result<(i32, i32), String> {
+    let mut imported = 0;
+    let mut skipped = 0;
+    
+    // Start a transaction for safety
+    target_conn.execute("BEGIN TRANSACTION", [])
+        .map_err(|e| format!("Failed to begin transaction: {}", e))?;
+    
+    // Get all records from source table with error handling
+    let query = format!("SELECT * FROM {}", table_name);
+    let mut stmt = match source_conn.prepare(&query) {
+        Ok(stmt) => stmt,
+        Err(e) => {
+            target_conn.execute("ROLLBACK", []).ok();
+            return Err(format!("Failed to prepare query for {}: {}", table_name, e));
+        }
+    };
+    
+    let column_names: Vec<String> = stmt.column_names().iter().map(|s| s.to_string()).collect();
+    
+    // Prepare insert statement for target database
+    let placeholders: Vec<String> = column_names.iter().map(|_| "?".to_string()).collect();
+    let insert_query = format!(
+        "INSERT OR IGNORE INTO {} ({}) VALUES ({})",
+        table_name,
+        column_names.join(", "),
+        placeholders.join(", ")
+    );
+    
+    let mut insert_stmt = match target_conn.prepare(&insert_query) {
+        Ok(stmt) => stmt,
+        Err(e) => {
+            target_conn.execute("ROLLBACK", []).ok();
+            return Err(format!("Failed to prepare insert statement: {}", e));
+        }
+    };
+    
+    // Process rows with corruption protection
+    let rows = match stmt.query_map([], |row| {
+        let mut values = Vec::new();
+        for i in 0..column_names.len() {
+            match row.get::<_, rusqlite::types::Value>(i) {
+                Ok(value) => values.push(value),
+                Err(_) => values.push(rusqlite::types::Value::Null), // Replace corrupted values with NULL
+            }
+        }
+        Ok(values)
+    }) {
+        Ok(rows) => rows,
+        Err(e) => {
+            target_conn.execute("ROLLBACK", []).ok();
+            return Err(format!("Failed to query {}: {}", table_name, e));
+        }
+    };
+    
+    // Import each record with individual error handling
+    for row_result in rows {
+        match row_result {
+            Ok(values) => {
+                // Convert values to parameters
+                let params: Vec<&dyn rusqlite::ToSql> = values.iter()
+                    .map(|v| v as &dyn rusqlite::ToSql)
+                    .collect();
+                
+                match insert_stmt.execute(&params[..]) {
+                    Ok(changes) => {
+                        if changes > 0 {
+                            imported += 1;
+                        } else {
+                            skipped += 1;
+                        }
+                    }
+                    Err(e) => {
+                        // Skip corrupted records instead of failing
+                        eprintln!("Skipping corrupted record in {}: {}", table_name, e);
+                        skipped += 1;
+                    }
+                }
+            }
+            Err(e) => {
+                // Skip corrupted rows
+                eprintln!("Skipping corrupted row in {}: {}", table_name, e);
+                skipped += 1;
+            }
+        }
+    }
+    
+    // Commit the transaction
+    match target_conn.execute("COMMIT", []) {
+        Ok(_) => Ok((imported, skipped)),
+        Err(e) => {
+            target_conn.execute("ROLLBACK", []).ok();
+            Err(format!("Failed to commit transaction: {}", e))
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn sync_remaining_book_copies() -> Result<String, String> {
+    use anyhow::Result;
+    use reqwest;
+    use serde_json::Value;
+    use sqlx::sqlite::{SqlitePool, SqliteConnectOptions, SqliteJournalMode};
+    use sqlx::ConnectOptions;
+    use std::path::PathBuf;
+    use std::time::Duration;
+
+    async fn sync_remaining_book_copies_internal() -> Result<u32> {
+        println!("🔄 Starting sync for remaining book copies...");
+        
+        let app_dir = dirs::data_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("library-management-system");
+            
+        let db_path = app_dir.join("library.db");
+        
+        let mut options = SqliteConnectOptions::new()
+            .filename(&db_path)
+            .journal_mode(SqliteJournalMode::Wal)
+            .create_if_missing(true);
+        options = options.log_statements(log::LevelFilter::Off);
+        
+        let pool = SqlitePool::connect_with(options).await?;
+        
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(60))
+            .build()?;
+            
+        let anon_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRkbHplbmxxa29mZWZkd2RlZnptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5MzEwNDUsImV4cCI6MjA2NDUwNzA0NX0.wyIuCalCMVs5zUPExw02QDYDrQSCCEzZerYBA_hfosU";
+        
+        // Get current local count
+        let local_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM book_copies")
+            .fetch_one(&pool)
+            .await?;
+        
+        println!("📊 Current local book copies: {}", local_count);
+        
+        // Sync remaining records with robust pagination
+        let synced = sync_with_robust_pagination(&pool, &client, anon_key, local_count as u32).await?;
+        
+        println!("🎉 Successfully synced {} additional book copies", synced);
+        Ok(synced)
+    }
+
+    async fn sync_with_robust_pagination(
+        pool: &SqlitePool,
+        client: &reqwest::Client,
+        anon_key: &str,
+        start_offset: u32,
+    ) -> Result<u32> {
+        let batch_size = 1000;
+        let mut offset = start_offset;
+        let mut total_synced = 0;
+        let mut consecutive_empty_batches = 0;
+        let empty_vec = vec![];
+        
+        loop {
+            println!("📦 Fetching batch at offset {}...", offset);
+            
+            let url = format!(
+                "https://ddlzenlqkofefdwdefzm.supabase.co/rest/v1/book_copies?select=*&limit={}&offset={}",
+                batch_size, offset
+            );
+            
+            let response = client
+                .get(&url)
+                .header("apikey", anon_key)
+                .header("Authorization", format!("Bearer {}", anon_key))
+                .timeout(Duration::from_secs(30))
+                .send()
+                .await?;
+            
+            if !response.status().is_success() {
+                println!("❌ Failed to fetch batch: {}", response.status());
+                break;
+            }
+            
+            let json: Value = response.json().await?;
+            let records = json.as_array().unwrap_or(&empty_vec);
+            
+            if records.is_empty() {
+                consecutive_empty_batches += 1;
+                if consecutive_empty_batches >= 3 {
+                    println!("✅ No more records found");
+                    break;
+                }
+                offset += batch_size;
+                continue;
+            }
+            
+            consecutive_empty_batches = 0;
+            println!("📚 Processing {} records...", records.len());
+            
+            for record in records {
+                let id = record["id"].as_str().unwrap_or_default();
+                let tracking_code = record["tracking_code"].as_str().unwrap_or_default();
+                let condition = record["condition"].as_str().unwrap_or("good");
+                let status = record["status"].as_str().unwrap_or("available");
+                let legacy_book_id = record["legacy_book_id"].as_i64();
+                let created_at = record["created_at"].as_str().unwrap_or_default();
+                let updated_at = record["updated_at"].as_str().unwrap_or_default();
+                
+                let _ = sqlx::query(
+                    "INSERT OR REPLACE INTO book_copies (
+                        id, isbn, title, author, publisher, publication_year,
+                        copy_identifier, acquisition_date, condition, status,
+                        location, department_id, legacy_book_id, created_at, updated_at,
+                        synced, sync_version, deleted
+                    ) VALUES (?, '', 'Unknown Title', 'Unknown Author', '', NULL, ?, date('now'), ?, ?, 'Main Library', 1, ?, ?, ?, 1, 1, 0)"
+                )
+                .bind(id)
+                .bind(tracking_code)
+                .bind(condition)
+                .bind(status)
+                .bind(legacy_book_id)
+                .bind(created_at)
+                .bind(updated_at)
+                .execute(pool)
+                .await;
+                
+                total_synced += 1;
+            }
+            
+            offset += batch_size;
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            
+            if offset > 200000 {
+                break;
+            }
+        }
+        
+        Ok(total_synced)
+    }
+
+    match sync_remaining_book_copies_internal().await {
+        Ok(count) => Ok(format!("Successfully synced {} remaining book copies", count)),
+        Err(e) => Err(format!("Failed to sync remaining book copies: {}", e)),
+    }
 }

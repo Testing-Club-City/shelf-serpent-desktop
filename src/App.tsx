@@ -7,7 +7,8 @@ import { useOfflineAuth, OfflineAuthProvider } from "@/hooks/useOfflineAuth";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { DocumentMetaProvider } from "@/hooks/useDocumentMetaContext";
-import { BookOpen } from 'lucide-react';
+import { SplashScreen } from "@/components/SplashScreen";
+import { useStartupSound } from "@/hooks/useStartupSound";
 import { useEffect, useState } from 'react';
 
 // Ultra-fast React Query client with minimal overhead
@@ -25,60 +26,37 @@ const queryClient = new QueryClient({
 
 function FastApp() {
   const { isAuthenticated, loading } = useOfflineAuth();
+  const [showSplash, setShowSplash] = useState(true);
   const [showApp, setShowApp] = useState(false);
-  const [bypassAuth, setBypassAuth] = useState(false);
   
-  // Ultra-fast loading bypass - show app immediately after timeout
-  useEffect(() => {
-    // For production builds, use shorter timeout
-    const isProduction = import.meta.env.PROD;
-    const timeout = isProduction ? 1500 : 500; // 1.5s for prod, 500ms for dev
-    
-    const timer = setTimeout(() => {
-      console.log(`⚡ Fast loading bypass after ${timeout}ms - showing app immediately`);
-      setShowApp(true);
-      
-      // If still loading after 3 seconds in production, bypass auth check
-      if (isProduction && loading) {
-        setTimeout(() => {
-          if (loading) {
-            console.warn('⚠️ Auth check timeout - bypassing to login screen');
-            setBypassAuth(true);
-          }
-        }, 1500);
-      }
-    }, timeout);
-    
-    return () => clearTimeout(timer);
-  }, [loading]);
-
+  // Play startup sound
+  useStartupSound();
+  
   // Set document title immediately
   useEffect(() => {
-    document.title = 'Library Management System';
+    document.title = 'Kisii School Library Management System';
   }, []);
 
-  // Show loading screen briefly
-  if (!showApp) {
-    return (
-      <div className="flex items-center justify-center min-h-[600px] bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="text-center">
-          <BookOpen className="w-16 h-16 mx-auto mb-4 text-blue-600 animate-pulse" />
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">Library Manager</h1>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
+  // Handle splash screen completion
+  const handleSplashComplete = () => {
+    setShowSplash(false);
+    setShowApp(true);
+  };
+
+  // Show splash screen first
+  if (showSplash) {
+    return <SplashScreen onComplete={handleSplashComplete} />;
   }
 
   return (
-    <div className="bg-background">
-      {loading && !showApp && !bypassAuth ? (
-        <div className="flex items-center justify-center bg-white">
+    <div className="bg-background min-h-screen">
+      {loading && !showApp ? (
+        <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
           <div className="text-center">
             <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mb-4 animate-pulse">
-              <BookOpen className="w-6 h-6 text-white" />
+              <img src="/tamnet-logo.png" alt="Tamnet" className="w-8 h-8" />
             </div>
-            <p className="text-lg font-medium text-gray-700">Loading Library System...</p>
+            <p className="text-lg font-medium text-gray-700">Finalizing setup...</p>
           </div>
         </div>
       ) : (

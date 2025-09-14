@@ -107,6 +107,8 @@ export const Reports = () => {
     { value: 'current_term', label: 'Current Term', description: 'Current academic term' },
   ];
 
+
+
   // Helper function to get date range based on selection
   const getDateRange = (rangeType: string) => {
     const now = new Date();
@@ -1448,6 +1450,20 @@ export const Reports = () => {
         title = `Staff Borrowing History Report (${dateRange.label})`;
         break;
       
+      case 'lost_books':
+        // For lost books and theft reports, we don't use the preview system
+        // Instead, we set the selectedReportType to show the dedicated components
+        setSelectedReportType(reportType);
+        setShowPreview(false);
+        return;
+      
+      case 'theft_reports':
+        // For lost books and theft reports, we don't use the preview system
+        // Instead, we set the selectedReportType to show the dedicated components
+        setSelectedReportType(reportType);
+        setShowPreview(false);
+        return;
+      
       default:
         return;
     }
@@ -1467,8 +1483,71 @@ export const Reports = () => {
   };
 
   const handleGeneratePDF = async () => {
-    if (previewData && currentReportTitle && selectedReportType) {
-      await generatePDFReport(previewData, currentReportTitle, selectedReportType);
+    let isGenerating = false;
+    
+    try {
+      if (isGenerating) {
+        console.log('PDF generation already in progress');
+        return;
+      }
+      
+      isGenerating = true;
+      console.log('handleGeneratePDF called');
+      
+      if (!previewData) {
+        toast({
+          title: "Error",
+          description: "No report data available. Please generate a report first.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (!currentReportTitle) {
+        toast({
+          title: "Error", 
+          description: "No report title available.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (!selectedReportType) {
+        toast({
+          title: "Error",
+          description: "No report type selected.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Generating PDF",
+        description: "Please wait while we generate your PDF report...",
+      });
+
+      // Create a copy of data to avoid reference issues
+      const reportData = JSON.parse(JSON.stringify(previewData));
+      
+      await generatePDFReport(reportData, currentReportTitle, selectedReportType);
+      
+      // Small delay to ensure PDF generation completes
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      toast({
+        title: "Success",
+        description: "PDF report generated successfully!",
+      });
+      
+    } catch (error) {
+      console.error('Error in handleGeneratePDF:', error);
+      toast({
+        title: "PDF Generation Failed",
+        description: error instanceof Error ? error.message : "An unknown error occurred while generating the PDF.",
+        variant: "destructive",
+      });
+    } finally {
+      isGenerating = false;
     }
   };
 
@@ -1488,16 +1567,44 @@ export const Reports = () => {
   const renderSelectedReport = () => {
     if (selectedReportType === 'lost_books') {
       return (
-        <Suspense fallback={<div className="p-8 text-center">Loading report...</div>}>
-          <LostBooksReport onGeneratePDF={generateLostBooksReport} />
-        </Suspense>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Button 
+              variant="default" 
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={() => {
+                setSelectedReportType('');
+                setShowPreview(false);
+              }}
+            >
+              ← Back to Reports
+            </Button>
+          </div>
+          <Suspense fallback={<div className="p-8 text-center">Loading report...</div>}>
+            <LostBooksReport onGeneratePDF={generateLostBooksReport} />
+          </Suspense>
+        </div>
       );
     }
     if (selectedReportType === 'theft_reports') {
       return (
-        <Suspense fallback={<div className="p-8 text-center">Loading report...</div>}>
-          <TheftReportsView onGeneratePDF={() => generateTheftReport()} />
-        </Suspense>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Button 
+              variant="default" 
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={() => {
+                setSelectedReportType('');
+                setShowPreview(false);
+              }}
+            >
+              ← Back to Reports
+            </Button>
+          </div>
+          <Suspense fallback={<div className="p-8 text-center">Loading report...</div>}>
+            <TheftReportsView onGeneratePDF={() => generateTheftReport()} />
+          </Suspense>
+        </div>
       );
     }
     if (selectedReportType === 'group_borrowings') {
@@ -2166,7 +2273,18 @@ export const Reports = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Tamnet Watermark */}
+      <div className="fixed inset-0 pointer-events-none z-0 flex items-center justify-center opacity-5">
+        <img 
+          src="/Tamnet Logo.png" 
+          alt="Tamnet Systems" 
+          className="w-96 h-96 object-contain transform rotate-12"
+        />
+      </div>
+      
+      {/* Content with higher z-index */}
+      <div className="relative z-10">
       {/* Professional Header */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-8 border border-blue-200">
         <div className="flex items-center justify-between">
@@ -2290,7 +2408,7 @@ export const Reports = () => {
         </Card>
       </div>
 
-      {/* Show Preview or Report Generator */}
+      {/* Show Preview, Report Generator, or Special Reports */}
       {showPreview && previewData ? (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -2324,6 +2442,9 @@ export const Reports = () => {
             selectedClass={selectedClass === 'all' ? 'All Classes' : (availableClasses?.find(cls => cls.id === selectedClass)?.name || 'Selected Class')}
           />
         </div>
+      ) : selectedReportType && ['lost_books', 'theft_reports'].includes(selectedReportType) ? (
+        // Show special reports (Lost Books and Theft Reports)
+        renderSelectedReport()
       ) : (
         <ReportGenerator
           onGenerateReport={handleGenerateWithPreview}
@@ -2334,8 +2455,8 @@ export const Reports = () => {
         />
       )}
 
-      {/* Legacy Report Content for Special Cases */}
-      {renderSelectedReport()}
+      {/* Legacy Report Content for Special Cases - Remove this since it's now handled above */}
+      {/* {renderSelectedReport()} */}
 
 
 
@@ -2386,6 +2507,7 @@ export const Reports = () => {
           </CardContent>
         </Card>
       )}
+      </div>
     </div>
   );
 };

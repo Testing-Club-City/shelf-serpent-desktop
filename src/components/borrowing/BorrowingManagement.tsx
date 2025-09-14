@@ -244,6 +244,7 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
   const [returnsPage, setReturnsPage] = useState(1);
   const [finesPage, setFinesPage] = useState(1);
   const [staffSearchTerm, setStaffSearchTerm] = useState('');
+  const [studentSearchTerm, setStudentSearchTerm] = useState('');
 
   // Staff borrowing search query
   const { data: staffSearchResults, isLoading: staffSearchLoading } = useQuery({
@@ -254,6 +255,17 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
       return await invoke('search_staff_borrowings', { searchTerm: staffSearchTerm.trim() });
     },
     enabled: !!staffSearchTerm.trim()
+  });
+
+  // Student borrowing search query
+  const { data: studentSearchResults, isLoading: studentSearchLoading } = useQuery({
+    queryKey: ['student-borrowing-search', studentSearchTerm],
+    queryFn: async () => {
+      if (!studentSearchTerm.trim()) return [];
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke('search_student_borrowings', { searchTerm: studentSearchTerm.trim() });
+    },
+    enabled: !!studentSearchTerm.trim()
   });
 
   // Fast data loading with timeout
@@ -529,7 +541,13 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
 
   // Memoized paginated data for performance
   const paginatedData = useMemo(() => {
-    const studentBorrowings = filteredActiveBorrowings.filter(b => (b as any).borrower_type === 'student' || !(b as any).borrower_type);
+    // Use search results if searching, otherwise show all student borrowings
+    let studentBorrowings;
+    if (studentSearchTerm.trim()) {
+      studentBorrowings = studentSearchResults || [];
+    } else {
+      studentBorrowings = filteredActiveBorrowings.filter(b => (b as any).borrower_type === 'student' || !(b as any).borrower_type);
+    }
     
     // Use search results if searching, otherwise show all staff borrowings
     let staffBorrowings;
@@ -550,7 +568,7 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
       returns: getPaginatedData(recentReturns, returnsPage),
       fines: getPaginatedData(unpaidFines, finesPage)
     };
-  }, [filteredActiveBorrowings, groupBorrowings, overdueBorrowings, recentReturns, combinedFinesData, activePage, staffPage, groupsPage, overduePage, returnsPage, finesPage, staffSearchTerm, staffSearchResults]);
+  }, [filteredActiveBorrowings, groupBorrowings, overdueBorrowings, recentReturns, combinedFinesData, activePage, staffPage, groupsPage, overduePage, returnsPage, finesPage, staffSearchTerm, staffSearchResults, studentSearchTerm, studentSearchResults]);
 
   const calculateDaysOverdue = (dueDate: string) => {
     const today = getSafeCurrentDate();
@@ -1518,20 +1536,58 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
 
         {/* Student Borrowings Tab */}
         <TabsContent value="active" className="space-y-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <h3 className="text-lg font-semibold">Active Student Borrowings</h3>
-              <Badge variant="secondary" className="text-xs">
-                Latest First
-              </Badge>
+          {/* Student Search */}
+          <div className="bg-white rounded-lg shadow-sm p-4">
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <input
+                    type="text"
+                    placeholder="Search students by admission number or name..."
+                    value={studentSearchTerm}
+                    onChange={(e) => setStudentSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              {studentSearchTerm && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setStudentSearchTerm('')}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  Clear
+                </Button>
+              )}
             </div>
-            <Input
-              placeholder="Search by admission number..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-[300px]"
-            />
+            {studentSearchTerm && (
+              <div className="mt-2 text-sm text-gray-600">
+                {studentSearchLoading ? (
+                  <span className="flex items-center gap-2">
+                    <div className="h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    Searching for: <span className="font-medium">"{studentSearchTerm}"</span>
+                  </span>
+                ) : (
+                  <>
+                    Searching for: <span className="font-medium">"{studentSearchTerm}"</span>
+                    {paginatedData.activeBorrowings.length > 0 && (
+                      <span className="ml-2 text-green-600">
+                        ({paginatedData.activeBorrowings.length} result{paginatedData.activeBorrowings.length !== 1 ? 's' : ''} found)
+                      </span>
+                    )}
+                    {paginatedData.activeBorrowings.length === 0 && !studentSearchLoading && (
+                      <span className="ml-2 text-red-600">
+                        (No results found)
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
+
           <div className="bg-white rounded-lg shadow-sm">
             <Table>
               <TableHeader>

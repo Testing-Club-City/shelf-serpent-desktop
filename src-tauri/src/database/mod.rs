@@ -34,6 +34,7 @@ fn parse_sqlite_datetime(datetime_str: &str) -> Result<DateTime<Utc>, rusqlite::
 
 pub struct DatabaseManager {
     connection: Arc<Mutex<Connection>>,
+    db_path: String,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -84,7 +85,12 @@ impl DatabaseManager {
         
         Ok(Self {
             connection: Arc::new(Mutex::new(conn)),
+            db_path: db_path.to_string(),
         })
+    }
+
+    pub fn get_db_path(&self) -> &str {
+        &self.db_path
     }
 
     /// Ensure all tables have the necessary sync columns

@@ -13,6 +13,7 @@ import { ImprovedSchoolCalendarManagement } from './ImprovedSchoolCalendarManage
 import { ProfessionalSystemLogs } from './ProfessionalSystemLogs';
 import { AdminOverview } from './AdminOverview';
 import { UserPresenceManagement } from './UserPresenceManagement';
+import { DatabaseManagement } from './DatabaseManagement';
 // DatabaseImport component removed - functionality moved to migration panels
 import { 
   Users, 
@@ -209,6 +210,12 @@ export const AdminPanel = ({ initialTab = 'overview' }: AdminPanelProps) => {
     {
       title: "Data Management",
       items: [
+        {
+          name: "Database Management",
+          icon: <Database className="h-5 w-5" />,
+          component: <DatabaseManagement />,
+          description: "Import and replace the current database"
+        },
         {
           name: "Legacy Data Migration",
           icon: <Database className="h-5 w-5" />,
@@ -540,6 +547,13 @@ export const AdminPanel = ({ initialTab = 'overview' }: AdminPanelProps) => {
            {/* Student Migration */}
            <TabsContent value="migration">
              <LazyTabContent tabName="migration">
+               {/* Database Management */}
+               <Card className="shadow-sm border-0 mb-8">
+                 <CardContent className="p-6">
+                   <DatabaseManagement />
+                 </CardContent>
+               </Card>
+
                <Card className="shadow-sm border-0">
                  <CardHeader className="pb-6">
                    <div className="flex items-center gap-3">
