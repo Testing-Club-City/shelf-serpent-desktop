@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { DocumentMetaProvider } from "@/hooks/useDocumentMetaContext";
 import { SplashScreen } from "@/components/SplashScreen";
+import { CopyrightPage } from "@/components/CopyrightPage";
 import { useStartupSound } from "@/hooks/useStartupSound";
 import { useEffect, useState } from 'react';
 
@@ -27,6 +28,7 @@ const queryClient = new QueryClient({
 function FastApp() {
   const { isAuthenticated, loading } = useOfflineAuth();
   const [showSplash, setShowSplash] = useState(true);
+  const [showCopyright, setShowCopyright] = useState(false);
   const [showApp, setShowApp] = useState(false);
   
   // Play startup sound
@@ -43,9 +45,25 @@ function FastApp() {
     setShowApp(true);
   };
 
+  // Show copyright page
+  if (showCopyright) {
+    return <CopyrightPage onBack={() => {
+      setShowCopyright(false);
+      // Return to splash if it was still showing, otherwise go to main app
+      if (showSplash) {
+        // Keep splash showing
+      } else {
+        setShowApp(true);
+      }
+    }} />;
+  }
+
   // Show splash screen first
   if (showSplash) {
-    return <SplashScreen onComplete={handleSplashComplete} />;
+    return <SplashScreen 
+      onComplete={handleSplashComplete} 
+      onShowCopyright={() => setShowCopyright(true)}
+    />;
   }
 
   return (

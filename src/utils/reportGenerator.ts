@@ -135,10 +135,10 @@ const generateSimplePDF = async (data: any, title: string, reportType: string): 
         try {
           const centerX = pageWidth / 2;
           const centerY = pageHeight / 2;
-          doc.saveGraphicsState();
-          doc.setGState(new doc.GState({ opacity: 0.08 }));
+          (doc as any).saveGraphicsState();
+          (doc as any).setGState(new (doc as any).GState({ opacity: 0.08 }));
           doc.addImage(tamnetLogoBase64, 'PNG', centerX - 60, centerY - 60, 120, 120);
-          doc.restoreGraphicsState();
+          (doc as any).restoreGraphicsState();
         } catch (error) {
           console.warn('Error adding watermark:', error);
         }
@@ -454,7 +454,7 @@ const generateSimplePDF = async (data: any, title: string, reportType: string): 
 
     // Footer on all pages
     console.log('Adding footers to pages...');
-    const totalPages = doc.getNumberOfPages();
+    const totalPages = (doc as any).getNumberOfPages();
     console.log('Total pages:', totalPages);
     
     for (let i = 1; i <= totalPages; i++) {

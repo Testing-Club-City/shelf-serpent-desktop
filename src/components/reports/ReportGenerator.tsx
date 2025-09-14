@@ -30,7 +30,6 @@ interface ReportType {
   color: string;
   category: 'books' | 'students' | 'staff' | 'analytics';
   complexity: 'basic' | 'intermediate' | 'advanced';
-  estimatedTime: string;
 }
 
 interface ReportGeneratorProps {
@@ -64,8 +63,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({
       icon: FileText,
       color: 'bg-blue-500',
       category: 'books',
-      complexity: 'basic',
-      estimatedTime: '2-3 min'
+      complexity: 'basic'
     },
     {
       id: 'overdue_books',
@@ -74,8 +72,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({
       icon: AlertCircle,
       color: 'bg-red-500',
       category: 'books',
-      complexity: 'basic',
-      estimatedTime: '1-2 min'
+      complexity: 'basic'
     },
     {
       id: 'popular_books',
@@ -84,8 +81,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({
       icon: TrendingUp,
       color: 'bg-green-500',
       category: 'analytics',
-      complexity: 'intermediate',
-      estimatedTime: '3-4 min'
+      complexity: 'intermediate'
     },
     {
       id: 'student_activity',
@@ -94,8 +90,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({
       icon: Users,
       color: 'bg-purple-500',
       category: 'students',
-      complexity: 'intermediate',
-      estimatedTime: '4-5 min'
+      complexity: 'intermediate'
     },
     {
       id: 'fine_collection',
@@ -104,8 +99,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({
       icon: Currency,
       color: 'bg-amber-500',
       category: 'analytics',
-      complexity: 'intermediate',
-      estimatedTime: '3-4 min'
+      complexity: 'intermediate'
     },
     {
       id: 'lost_books',
@@ -114,8 +108,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({
       icon: BookX,
       color: 'bg-rose-500',
       category: 'books',
-      complexity: 'intermediate',
-      estimatedTime: '3-4 min'
+      complexity: 'intermediate'
     },
     {
       id: 'theft_reports',
@@ -124,8 +117,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({
       icon: Shield,
       color: 'bg-red-600',
       category: 'books',
-      complexity: 'advanced',
-      estimatedTime: '4-5 min'
+      complexity: 'advanced'
     },
     {
       id: 'library_summary',
@@ -134,8 +126,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({
       icon: BarChart3,
       color: 'bg-orange-500',
       category: 'analytics',
-      complexity: 'advanced',
-      estimatedTime: '5-6 min'
+      complexity: 'advanced'
     },
     {
       id: 'group_borrowings',
@@ -144,8 +135,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({
       icon: UsersRound,
       color: 'bg-indigo-500',
       category: 'students',
-      complexity: 'advanced',
-      estimatedTime: '4-5 min'
+      complexity: 'advanced'
     },
     {
       id: 'book_suppliers',
@@ -154,8 +144,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({
       icon: Users,
       color: 'bg-teal-500',
       category: 'books',
-      complexity: 'basic',
-      estimatedTime: '2-3 min'
+      complexity: 'basic'
     },
     {
       id: 'staff_overdue_books',
@@ -164,8 +153,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({
       icon: AlertCircle,
       color: 'bg-red-400',
       category: 'staff',
-      complexity: 'basic',
-      estimatedTime: '2-3 min'
+      complexity: 'basic'
     },
     {
       id: 'staff_activity',
@@ -174,8 +162,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({
       icon: Users,
       color: 'bg-teal-500',
       category: 'staff',
-      complexity: 'basic',
-      estimatedTime: '2-3 min'
+      complexity: 'basic'
     },
     {
       id: 'staff_borrowing_trends',
@@ -184,8 +171,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({
       icon: TrendingUp,
       color: 'bg-cyan-500',
       category: 'staff',
-      complexity: 'intermediate',
-      estimatedTime: '3-4 min'
+      complexity: 'intermediate'
     },
     {
       id: 'staff_most_borrowed',
@@ -194,8 +180,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({
       icon: BookOpen,
       color: 'bg-emerald-500',
       category: 'staff',
-      complexity: 'intermediate',
-      estimatedTime: '3-4 min'
+      complexity: 'intermediate'
     },
     {
       id: 'staff_borrowing_history',
@@ -204,8 +189,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({
       icon: Calendar,
       color: 'bg-violet-500',
       category: 'staff',
-      complexity: 'basic',
-      estimatedTime: '2-3 min'
+      complexity: 'basic'
     }
   ];
 
@@ -358,11 +342,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({
                     <p className="text-sm text-gray-600 leading-relaxed">{report.description}</p>
                   </div>
                   
-                  <div className="flex items-center justify-between text-xs text-gray-500">
-                    <div className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {report.estimatedTime}
-                    </div>
+                  <div className="flex items-center justify-end text-xs text-gray-500">
                     <div className="flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
                       {selectedDateRange}

@@ -554,35 +554,35 @@ export const Reports = () => {
     {
       id: 'borrowing_history',
       title: 'Borrowing History',
-      description: 'Complete history of all book borrowings and returns',
+      description: 'Complete history of all book borrowings and returns with detailed tracking',
       icon: FileText,
       color: 'bg-blue-500',
     },
     {
       id: 'overdue_books',
       title: 'Overdue Books Report',
-      description: 'List of all books currently overdue for return',
+      description: 'Critical report of all books currently overdue for return',
       icon: Calendar,
       color: 'bg-red-500',
     },
     {
       id: 'popular_books',
-      title: 'Popular Books',
-      description: 'Most frequently borrowed books in the library',
+      title: 'Popular Books Analytics',
+      description: 'Data-driven analysis of most frequently borrowed books',
       icon: TrendingUp,
       color: 'bg-green-500',
     },
     {
       id: 'student_activity',
-      title: 'Student Activity',
-      description: 'Student borrowing patterns and statistics',
+      title: 'Student Activity Report',
+      description: 'Comprehensive student borrowing patterns and engagement metrics',
       icon: FileText,
       color: 'bg-purple-500',
     },
     {
       id: 'fine_collection',
       title: 'Fine Collection Report',
-      description: 'Summary of fines collected from students for overdue books',
+      description: 'Financial summary of fines collected from overdue books',
       icon: Currency,
       color: 'bg-amber-500',
     },
@@ -2286,28 +2286,23 @@ export const Reports = () => {
       {/* Content with higher z-index */}
       <div className="relative z-10">
       {/* Professional Header */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-8 border border-blue-200">
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
         <div className="flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
                 <BarChart3 className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Reports & Analytics</h1>
+                <h1 className="text-2xl font-bold text-gray-900">Reports & Analytics</h1>
+                <p className="text-sm text-gray-600">Generate comprehensive library reports</p>
               </div>
             </div>
-            {availableClasses.length > 0 && (
-              <div className="text-sm text-blue-600 bg-blue-100 px-3 py-1 rounded-full inline-block">
-                ✨ {availableClasses.length} classes available • {stats.totalStudentsInClass} students • {stats.totalBooks} books
-              </div>
-            )}
           </div>
           <div className="text-right">
-            <div className="text-sm text-gray-500">System Status</div>
-            <div className="flex items-center gap-2 text-green-600 font-semibold">
+            <div className="flex items-center gap-2 text-green-600 font-medium">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              Online & Ready
+              System Ready
             </div>
           </div>
         </div>
@@ -2317,14 +2312,12 @@ export const Reports = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Class Filter */}
         <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
               <Users className="w-5 h-5 text-blue-600" />
-              Filter by Class
-              <span className="text-sm font-normal text-gray-600 ml-2">
-                ({availableClasses.length} classes with students)
-              </span>
+              Class Selection
             </CardTitle>
+            <p className="text-sm text-gray-600">Filter reports by specific class</p>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -2368,11 +2361,12 @@ export const Reports = () => {
 
         {/* Date Range Filter */}
         <Card className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
               <Calendar className="w-5 h-5 text-purple-600" />
-              Report Duration
+              Report Period
             </CardTitle>
+            <p className="text-sm text-gray-600">Select date range for analysis</p>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -2398,10 +2392,6 @@ export const Reports = () => {
               </div>
               <div className="text-sm text-gray-600 bg-white px-3 py-2 rounded-md border">
                 📅 Report period: <span className="font-medium">{currentDateRange.label}</span>
-                <br />
-                <span className="text-xs text-gray-500">
-                  From {currentDateRange.start.toLocaleDateString()} to {currentDateRange.end.toLocaleDateString()}
-                </span>
               </div>
             </div>
           </CardContent>
@@ -2497,12 +2487,12 @@ export const Reports = () => {
         <Card className="border-2 border-dashed border-gray-300">
           <CardContent className="p-8 text-center">
             <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Classes Found</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Data Available</h3>
             <p className="text-gray-600 mb-4">
-              It looks like there are no classes with students assigned to them yet.
+              No classes with assigned students found.
             </p>
-            <div>
-              Please ensure students are properly assigned to classes using their class_id to see class-specific reports here.
+            <div className="text-sm text-gray-500">
+              Ensure students are properly assigned to classes to generate reports.
             </div>
           </CardContent>
         </Card>
