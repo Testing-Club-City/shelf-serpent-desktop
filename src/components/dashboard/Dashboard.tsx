@@ -248,10 +248,10 @@ export const Dashboard = () => {
             <div className="p-6 border-b border-gray-200 bg-white">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  {/* Tamnet Systems Logo */}
+                  {/* Kisii School Logo */}
                   <img
-                    src="/Tamnet Logo.png"
-                    alt="Tamnet Systems Logo"
+                    src="/kisiischool_logo.png"
+                    alt="Kisii School Logo"
                     className="w-12 h-12 rounded-lg object-contain shadow-md"
                   />
                   <div className="flex flex-col">
@@ -288,8 +288,8 @@ export const Dashboard = () => {
                 <button
                   onClick={() => handleTabChange('overview')}
                   className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'overview'
-                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
-                      : 'text-gray-700 hover:bg-gray-50'
+                    ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
+                    : 'text-gray-700 hover:bg-gray-50'
                     }`}
                 >
                   <BarChart3 className={`w-5 h-5 ${activeTab === 'overview' ? 'text-blue-600' : 'text-gray-500'}`} />
@@ -299,8 +299,8 @@ export const Dashboard = () => {
                 <button
                   onClick={() => handleTabChange('books')}
                   className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'books'
-                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
-                      : 'text-gray-700 hover:bg-gray-50'
+                    ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
+                    : 'text-gray-700 hover:bg-gray-50'
                     }`}
                 >
                   <BookOpen className={`w-5 h-5 ${activeTab === 'books' ? 'text-blue-600' : 'text-gray-500'}`} />
@@ -310,8 +310,8 @@ export const Dashboard = () => {
                 <button
                   onClick={() => handleTabChange('students')}
                   className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'students'
-                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
-                      : 'text-gray-700 hover:bg-gray-50'
+                    ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
+                    : 'text-gray-700 hover:bg-gray-50'
                     }`}
                 >
                   <Users className={`w-5 h-5 ${activeTab === 'students' ? 'text-blue-600' : 'text-gray-500'}`} />
@@ -321,8 +321,8 @@ export const Dashboard = () => {
                 <button
                   onClick={() => handleTabChange('staff')}
                   className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'staff'
-                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
-                      : 'text-gray-700 hover:bg-gray-50'
+                    ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
+                    : 'text-gray-700 hover:bg-gray-50'
                     }`}
                 >
                   <User className={`w-5 h-5 ${activeTab === 'staff' ? 'text-blue-600' : 'text-gray-500'}`} />
@@ -332,8 +332,8 @@ export const Dashboard = () => {
                 <button
                   onClick={() => handleTabChange('borrowing')}
                   className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'borrowing'
-                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
-                      : 'text-gray-700 hover:bg-gray-50'
+                    ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
+                    : 'text-gray-700 hover:bg-gray-50'
                     }`}
                 >
                   <FileText className={`w-5 h-5 ${activeTab === 'borrowing' ? 'text-blue-600' : 'text-gray-500'}`} />
@@ -343,8 +343,8 @@ export const Dashboard = () => {
                 <button
                   onClick={() => handleTabChange('reports')}
                   className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'reports'
-                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
-                      : 'text-gray-700 hover:bg-gray-50'
+                    ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
+                    : 'text-gray-700 hover:bg-gray-50'
                     }`}
                 >
                   <BarChart3 className={`w-5 h-5 ${activeTab === 'reports' ? 'text-blue-600' : 'text-gray-500'}`} />
@@ -354,8 +354,8 @@ export const Dashboard = () => {
                 <button
                   onClick={() => handleTabChange('profile')}
                   className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'profile'
-                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
-                      : 'text-gray-700 hover:bg-gray-50'
+                    ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
+                    : 'text-gray-700 hover:bg-gray-50'
                     }`}
                 >
                   <User className={`w-5 h-5 ${activeTab === 'profile' ? 'text-blue-600' : 'text-gray-500'}`} />
@@ -365,8 +365,8 @@ export const Dashboard = () => {
                 <button
                   onClick={() => handleTabChange('sync')}
                   className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'sync'
-                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
-                      : 'text-gray-700 hover:bg-gray-50'
+                    ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
+                    : 'text-gray-700 hover:bg-gray-50'
                     }`}
                 >
                   <RefreshCw className={`w-5 h-5 ${activeTab === 'sync' ? 'text-blue-600' : 'text-gray-500'}`} />
@@ -386,8 +386,8 @@ export const Dashboard = () => {
                     <button
                       onClick={() => handleTabChange('admin')}
                       className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${activeTab === 'admin'
-                          ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
-                          : 'text-gray-700 hover:bg-gray-50'
+                        ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
+                        : 'text-gray-700 hover:bg-gray-50'
                         }`}
                     >
                       <Crown className={`w-5 h-5 ${activeTab === 'admin' ? 'text-blue-600' : 'text-gray-500'}`} />

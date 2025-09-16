@@ -174,58 +174,121 @@ pub async fn get_student_overdue_books(
 ) -> Result<Value, String> {
     let conn = state.get_connection().lock().map_err(|e| format!("Database lock error: {}", e))?;
     
+    // Use the exact same pattern as get_borrowings_with_details for consistency
     let query = "SELECT 
-        b.id as borrowing_id,
-        b.borrowed_date,
-        b.due_date,
-        b.status,
-        s.first_name,
-        s.last_name,
-        s.admission_number,
-        s.class_grade,
-        bc.title as book_title,
-        bc.author as book_author,
-        bc.copy_identifier,
+        b.id, b.student_id, b.book_id, b.borrowed_date, b.due_date, b.returned_date,
+        b.status, b.fine_amount, b.notes, b.tracking_code, b.borrower_type, b.staff_id,
+        b.condition_at_return,
+        s.first_name as student_first_name, s.last_name as student_last_name, 
+        s.admission_number, s.class_grade,
+        st.first_name as staff_first_name, st.last_name as staff_last_name,
+        st.staff_id as staff_identifier, st.department as staff_department,
+        st.position as staff_position, st.email as staff_email,
+        COALESCE(bk.title, bc.title, 'Unknown Book') as book_title, 
+        COALESCE(bk.author, bc.author, 'Unknown Author') as book_author, 
+        COALESCE(bk.isbn, bc.isbn) as book_isbn,
+        bc.copy_identifier as copy_number,
         bc.legacy_book_id,
-        julianday(\"now\") - julianday(b.due_date) as days_overdue
+        julianday('now') - julianday(b.due_date) as days_overdue
     FROM borrowings b
-    INNER JOIN students s ON b.student_id = s.id AND (s.deleted = 0 OR s.deleted IS NULL)
-    INNER JOIN book_copies bc ON b.book_copy_id = bc.id AND (bc.deleted = 0 OR bc.deleted IS NULL)
-    WHERE b.status = \"active\" 
+    LEFT JOIN students s ON b.student_id = s.id AND s.deleted = 0
+    LEFT JOIN staff st ON b.staff_id = st.id AND st.deleted = 0
+    LEFT JOIN books bk ON b.book_id = bk.id AND bk.deleted = 0
+    LEFT JOIN book_copies bc ON b.book_copy_id = bc.id AND bc.deleted = 0
+    WHERE b.deleted = 0
+      AND b.status = 'active' 
       AND b.student_id IS NOT NULL
-      AND b.due_date < date(\"now\")
-      AND (b.deleted = 0 OR b.deleted IS NULL)
-    ORDER BY days_overdue DESC";
+      AND b.due_date < date('now')
+    ORDER BY 
+        CASE WHEN b.status = 'active' THEN 0 ELSE 1 END,
+        b.created_at DESC,
+        b.borrowed_date DESC";
     
     let mut stmt = conn.prepare(query).map_err(|e| format!("Query prepare error: {}", e))?;
     
-    let rows = stmt.query_map([], |row| {
-        let legacy_id = row.get::<_, Option<i64>>(11)?;
-        Ok(json!({
-            "borrowing_id": row.get::<_, String>(0)?,
-            "borrowed_date": row.get::<_, String>(1)?,
-            "due_date": row.get::<_, String>(2)?,
-            "status": row.get::<_, String>(3)?,
-            "student": {
-                "first_name": row.get::<_, Option<String>>(4)?,
-                "last_name": row.get::<_, Option<String>>(5)?,
-                "admission_number": row.get::<_, Option<String>>(6)?,
-                "class_grade": row.get::<_, Option<String>>(7)?
-            },
-            "book": {
-                "title": row.get::<_, Option<String>>(8)?.unwrap_or("Unknown Book".to_string()),
-                "author": row.get::<_, Option<String>>(9)?.unwrap_or("Unknown Author".to_string()),
-                "copy_identifier": row.get::<_, Option<String>>(10)?,
-                "legacy_book_id": legacy_id
-            },
-            "days_overdue": row.get::<_, f64>(12)?
+    let borrowing_iter = stmt.query_map([], |row| {
+        let borrower_type = row.get::<_, Option<String>>("borrower_type")
+            .unwrap_or(Some("student".to_string()))
+            .unwrap_or("student".to_string());
+        
+        // Build student object exactly like get_borrowings_with_details
+        let students = match (
+            row.get::<_, Option<String>>("student_first_name"),
+            row.get::<_, Option<String>>("student_last_name")
+        ) {
+            (Ok(Some(first)), Ok(Some(last))) => serde_json::json!({
+                "id": row.get::<_, Option<String>>("student_id")?,
+                "first_name": first,
+                "last_name": last,
+                "admission_number": row.get::<_, Option<String>>("admission_number")?,
+                "class_grade": row.get::<_, Option<String>>("class_grade")?
+            }),
+            _ => serde_json::Value::Null
+        };
+
+        // Build staff object exactly like get_borrowings_with_details
+        let staff = match (
+            row.get::<_, Option<String>>("staff_first_name"),
+            row.get::<_, Option<String>>("staff_last_name")
+        ) {
+            (Ok(Some(first)), Ok(Some(last))) => serde_json::json!({
+                "id": row.get::<_, Option<String>>("staff_id")?,
+                "first_name": first,
+                "last_name": last,
+                "staff_id": row.get::<_, Option<String>>("staff_identifier")?,
+                "department": row.get::<_, Option<String>>("staff_department")?,
+                "position": row.get::<_, Option<String>>("staff_position")?,
+                "email": row.get::<_, Option<String>>("staff_email")?
+            }),
+            _ => serde_json::Value::Null
+        };
+        
+        let book_title = row.get::<_, String>("book_title")?;
+        let book_author = row.get::<_, String>("book_author")?;
+        
+        // Build book_copies object exactly like get_borrowings_with_details
+        let book_copies = match row.get::<_, Option<String>>("copy_number") {
+            Ok(Some(copy)) => serde_json::json!({
+                "copy_identifier": copy,
+                "legacy_book_id": row.get::<_, Option<i64>>("legacy_book_id")?
+            }),
+            _ => match row.get::<_, Option<i64>>("legacy_book_id") {
+                Ok(Some(legacy_id)) => serde_json::json!({
+                    "legacy_book_id": legacy_id
+                }),
+                _ => serde_json::Value::Null
+            }
+        };
+
+        Ok(serde_json::json!({
+            "id": row.get::<_, String>("id")?,
+            "student_id": row.get::<_, Option<String>>("student_id")?,
+            "book_id": row.get::<_, Option<String>>("book_id")?,
+            "borrowed_date": row.get::<_, String>("borrowed_date")?,
+            "due_date": row.get::<_, String>("due_date")?,
+            "returned_date": row.get::<_, Option<String>>("returned_date")?,
+            "status": row.get::<_, String>("status")?,
+            "fine_amount": row.get::<_, Option<f64>>("fine_amount").unwrap_or(Some(0.0)),
+            "notes": row.get::<_, Option<String>>("notes")?,
+            "tracking_code": row.get::<_, Option<String>>("tracking_code")?,
+            "borrower_type": borrower_type,
+            "staff_id": row.get::<_, Option<String>>("staff_id")?,
+            "condition_at_return": row.get::<_, Option<String>>("condition_at_return")?,
+            "students": students,
+            "staff": staff,
+            "books": serde_json::json!({
+                "id": row.get::<_, Option<String>>("book_id")?,
+                "title": book_title,
+                "author": book_author,
+                "isbn": row.get::<_, Option<String>>("book_isbn")?
+            }),
+            "book_copies": book_copies,
+            "days_overdue": row.get::<_, f64>("days_overdue")?
         }))
     }).map_err(|e| format!("Query execution error: {}", e))?;
     
-    let mut results = Vec::new();
-    for row in rows {
-        results.push(row.map_err(|e| format!("Row processing error: {}", e))?);
-    }
+    let results = borrowing_iter.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("Row processing error: {}", e))?;
     
     Ok(json!({
         "success": true,
