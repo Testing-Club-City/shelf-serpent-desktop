@@ -2,6 +2,29 @@ import { invoke } from '@tauri-apps/api/core';
 import { downloadDir } from '@tauri-apps/api/path';
 import jsPDF from 'jspdf';
 
+// Utility function to format days overdue in a professional way
+const formatDaysOverdue = (days: number): string => {
+  if (!days || days <= 0) return '0 days';
+  
+  const years = Math.floor(days / 365);
+  const months = Math.floor((days % 365) / 30);
+  const remainingDays = Math.floor(days % 30);
+  
+  if (years > 0) {
+    if (months > 0) {
+      return `${years}y ${months}m`;
+    }
+    return `${years} year${years > 1 ? 's' : ''}`;
+  } else if (months > 0) {
+    if (remainingDays > 0) {
+      return `${months}m ${remainingDays}d`;
+    }
+    return `${months} month${months > 1 ? 's' : ''}`;
+  } else {
+    return `${remainingDays} day${remainingDays > 1 ? 's' : ''}`;
+  }
+};
+
 // Function to convert image to base64 for PDF
 const getLogoBase64 = async (): Promise<string | null> => {
   try {
@@ -44,21 +67,32 @@ const getTamnetLogoBase64 = async (): Promise<string | null> => {
   }
 };
 
+// Helper function to calculate proportional column widths
+const calculateColumnWidths = (proportions: number[], totalWidth: number): number[] => {
+  const totalParts = proportions.reduce((sum, part) => sum + part, 0);
+  return proportions.map(part => Math.floor((part / totalParts) * totalWidth));
+};
+
 // Helper function to truncate text with ellipsis
 const truncateText = (doc: jsPDF, text: string, maxWidth: number): string => {
-  if (!text) return '';
-  const textStr = text.toString();
+  if (!text || text === null || text === undefined) return '';
+  
+  const textStr = String(text).trim(); // Convert to string and trim whitespace
+  
+  if (!textStr || maxWidth <= 0) return '';
   
   if (doc.getTextWidth(textStr) <= maxWidth) {
     return textStr;
   }
   
   let truncated = textStr;
-  while (doc.getTextWidth(truncated + '...') > maxWidth && truncated.length > 0) {
+  const ellipsis = '...';
+  
+  while (doc.getTextWidth(truncated + ellipsis) > maxWidth && truncated.length > 0) {
     truncated = truncated.slice(0, -1);
   }
   
-  return truncated + '...';
+  return truncated.length > 0 ? truncated + ellipsis : '';
 };
 
 // Enhanced Professional PDF generation
@@ -159,51 +193,90 @@ const generateSimplePDF = async (data: any, title: string, reportType: string): 
     // Function to add professional table
     const addTable = (headers: string[], rows: any[][], columnWidths: number[]) => {
       const rowHeight = 8;
-      const headerHeight = 10;
+      const headerHeight = 12; // Increased header height for better visibility
       
       console.log(`Adding table with ${rows.length} rows`);
+      console.log('Headers:', headers);
+      console.log('Headers length:', headers.length);
+      console.log('Column widths:', columnWidths);
+      console.log('Column widths length:', columnWidths.length);
+      
+      // Validate inputs
+      if (!headers || headers.length === 0) {
+        console.error('No headers provided to addTable function');
+        return;
+      }
+      
+      if (!columnWidths || columnWidths.length !== headers.length) {
+        console.error('Column widths length does not match headers length');
+        return;
+      }
       
       checkNewPage(headerHeight + Math.min(rows.length * rowHeight, 100));
       
-      // Table header
-      doc.setFillColor(59, 130, 246); // Blue header
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(9);
+      // Table header - render each header cell with improved styling
+      doc.setFillColor(59, 130, 246); // Blue header background
+      doc.setTextColor(255, 255, 255); // White text
+      doc.setFontSize(8); // Reduced from 10 to 8
       doc.setFont('helvetica', 'bold');
       
       let xPos = margin;
-      headers.forEach((header, i) => {
+      
+      console.log('Drawing header backgrounds...');
+      // First draw all header backgrounds
+      for (let i = 0; i < headers.length; i++) {
+        console.log(`Drawing header background ${i}: x=${xPos}, y=${yPosition}, width=${columnWidths[i]}, height=${headerHeight}`);
         doc.rect(xPos, yPosition, columnWidths[i], headerHeight, 'F');
-        doc.text(truncateText(doc, header, columnWidths[i] - 4), xPos + 2, yPosition + 7);
         xPos += columnWidths[i];
-      });
+      }
+      
+      console.log('Adding header text...');
+      // Then add all header text with proper positioning
+      xPos = margin;
+      for (let i = 0; i < headers.length; i++) {
+        const headerText = truncateText(doc, headers[i] || '', columnWidths[i] - 6);
+        const textX = xPos + 3;
+        const textY = yPosition + (headerHeight / 2) + 2;
+        console.log(`Adding header text ${i}: "${headerText}" at x=${textX}, y=${textY}`);
+        // Center text vertically in header cell
+        doc.text(headerText, textX, textY);
+        xPos += columnWidths[i];
+      }
       
       yPosition += headerHeight;
       
       // Table rows
       doc.setTextColor(0, 0, 0);
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
+      doc.setFontSize(7); // Reduced from 8 to 7
       
       rows.forEach((row, rowIndex) => {
         if (checkNewPage(rowHeight)) {
-          // Re-add header on new page
+          // Re-add header on new page with improved styling
           doc.setFillColor(59, 130, 246);
           doc.setTextColor(255, 255, 255);
-          doc.setFontSize(9);
+          doc.setFontSize(8); // Reduced from 10 to 8
           doc.setFont('helvetica', 'bold');
           
+          // Draw header backgrounds first
           xPos = margin;
-          headers.forEach((header, i) => {
+          for (let i = 0; i < headers.length; i++) {
             doc.rect(xPos, yPosition, columnWidths[i], headerHeight, 'F');
-            doc.text(truncateText(doc, header, columnWidths[i] - 4), xPos + 2, yPosition + 7);
             xPos += columnWidths[i];
-          });
+          }
+          
+          // Then add header text
+          xPos = margin;
+          for (let i = 0; i < headers.length; i++) {
+            const headerText = truncateText(doc, headers[i] || '', columnWidths[i] - 6);
+            doc.text(headerText, xPos + 3, yPosition + (headerHeight / 2) + 2);
+            xPos += columnWidths[i];
+          }
           
           yPosition += headerHeight;
           doc.setTextColor(0, 0, 0);
           doc.setFont('helvetica', 'normal');
-          doc.setFontSize(8);
+          doc.setFontSize(7); // Reduced from 8 to 7
         }
         
         // Alternate row colors
@@ -242,11 +315,17 @@ const generateSimplePDF = async (data: any, title: string, reportType: string): 
     console.log('Generating content for report type:', reportType);
     
     if (reportType === 'borrowing_history' && data.borrowings) {
-      const headers = ['Book Title', 'Student Name', 'Class/Grade', 'Date Borrowed', 'Due Date', 'Status'];
-      const columnWidths = [50, 40, 20, 25, 25, 25];
+      const headers = ['Book Title', 'Admission No.', 'Student Name', 'Class/Grade', 'Date Borrowed', 'Due Date', 'Status'];
+      const columnWidths = calculateColumnWidths([40, 25, 30, 20, 25, 25, 20], contentWidth);
+      
+      console.log('Borrowing history headers:', headers);
+      console.log('Column widths:', columnWidths);
+      console.log('Total width:', columnWidths.reduce((a, b) => a + b, 0));
+      console.log('Content width:', contentWidth);
       
       const rows = data.borrowings.map((b: any) => [
         b.book_title || b.books?.title || 'Unknown',
+        b.admission_number || b.students?.admission_number || 'N/A',
         `${b.student_name || b.students?.first_name || 'Unknown'} ${b.students?.last_name || ''}`.trim(),
         b.class_grade || b.students?.class_grade || 'N/A',
         b.borrowed_date ? new Date(b.borrowed_date).toLocaleDateString() : 'N/A',
@@ -254,18 +333,19 @@ const generateSimplePDF = async (data: any, title: string, reportType: string): 
         b.status || 'Active'
       ]);
       
+      console.log('Sample row:', rows[0]);
       addTable(headers, rows, columnWidths);
     }
     
     else if (reportType === 'overdue_books' && data.overdueBooks) {
       const headers = ['Book Title', 'Borrower Name', 'Due Date', 'Days Overdue', 'Fine Amount'];
-      const columnWidths = [55, 45, 30, 25, 30];
+      const columnWidths = calculateColumnWidths([55, 45, 30, 25, 30], contentWidth);
       
       const rows = data.overdueBooks.map((b: any) => [
         b.book_title || b.books?.title || 'Unknown',
         b.borrower_name || `${b.students?.first_name || b.staff?.first_name || 'Unknown'} ${b.students?.last_name || b.staff?.last_name || ''}`.trim(),
         b.due_date ? new Date(b.due_date).toLocaleDateString() : 'N/A',
-        b.days_overdue?.toString() || '0',
+        formatDaysOverdue(b.days_overdue || 0),
         `KSh ${b.fine_amount || 0}`
       ]);
       
@@ -274,24 +354,25 @@ const generateSimplePDF = async (data: any, title: string, reportType: string): 
     
     else if (reportType === 'popular_books' && data.popularBooks) {
       const headers = ['Book Title', 'Author Name', 'Times Borrowed', 'Category', 'Availability'];
-      const columnWidths = [50, 40, 25, 30, 30];
+      const columnWidths = calculateColumnWidths([50, 40, 25, 30, 30], contentWidth);
       
       const rows = data.popularBooks.map((b: any) => [
-        b.title || 'Unknown',
-        b.author || 'Unknown',
-        b.borrow_count?.toString() || '0',
-        b.category || 'N/A',
-        b.available_copies ? `${b.available_copies} available` : 'N/A'
+        b.book?.title || b.title || 'Unknown',
+        b.book?.author || b.author || 'Unknown',
+        b.borrowCount?.toString() || b.borrow_count?.toString() || '0',
+        b.book?.categories?.name || b.book?.category || b.category || 'General',
+        b.book?.available_copies ? `${b.book.available_copies} available` : 'N/A'
       ]);
       
       addTable(headers, rows, columnWidths);
     }
     
     else if (reportType === 'student_activity' && data.studentActivity) {
-      const headers = ['Student Name', 'Class/Grade', 'Books Borrowed', 'Active Loans', 'Overdue Books', 'Total Fines'];
-      const columnWidths = [40, 20, 25, 25, 20, 25];
+      const headers = ['Admission No.', 'Student Name', 'Class/Grade', 'Books Borrowed', 'Active Loans', 'Overdue Books', 'Total Fines'];
+      const columnWidths = calculateColumnWidths([25, 35, 20, 25, 25, 20, 25], contentWidth);
       
       const rows = data.studentActivity.map((s: any) => [
+        s.admission_number || 'N/A',
         `${s.first_name || 'Unknown'} ${s.last_name || ''}`.trim(),
         s.class_grade || 'N/A',
         s.total_borrowed?.toString() || '0',
@@ -305,7 +386,7 @@ const generateSimplePDF = async (data: any, title: string, reportType: string): 
     
     else if (reportType === 'fine_collection' && data.fines) {
       const headers = ['Borrower Name', 'Book Title', 'Fine Type', 'Amount', 'Date Created', 'Payment Status'];
-      const columnWidths = [40, 45, 25, 20, 25, 20];
+      const columnWidths = calculateColumnWidths([40, 45, 25, 20, 25, 20], contentWidth);
       
       const rows = data.fines.map((f: any) => [
         f.borrower_name || `${f.students?.first_name || f.staff?.first_name || 'Unknown'} ${f.students?.last_name || f.staff?.last_name || ''}`.trim(),
@@ -320,12 +401,13 @@ const generateSimplePDF = async (data: any, title: string, reportType: string): 
     }
     
     else if (reportType === 'lost_books' && data.lostBooks) {
-      const headers = ['Book Title', 'Author Name', 'Student Name', 'Class/Grade', 'Date Lost', 'Replacement Cost'];
-      const columnWidths = [45, 35, 35, 20, 25, 25];
+      const headers = ['Book Title', 'Author Name', 'Admission No.', 'Student Name', 'Class/Grade', 'Date Lost', 'Replacement Cost'];
+      const columnWidths = calculateColumnWidths([40, 30, 25, 30, 20, 25, 25], contentWidth);
       
       const rows = data.lostBooks.map((b: any) => [
         b.book_title || b.books?.title || 'Unknown',
         b.book_author || b.books?.author || 'Unknown',
+        b.admission_number || b.students?.admission_number || 'N/A',
         b.student_name || `${b.students?.first_name || 'Unknown'} ${b.students?.last_name || ''}`.trim(),
         b.class_grade || b.students?.class_grade || 'N/A',
         b.date_lost ? new Date(b.date_lost).toLocaleDateString() : 'N/A',
@@ -337,7 +419,7 @@ const generateSimplePDF = async (data: any, title: string, reportType: string): 
 
     else if (reportType === 'theft_reports' && data.theftReports) {
       const headers = ['Book Title', 'Reported By', 'Date Reported', 'Investigation Status', 'Investigation Notes'];
-      const columnWidths = [45, 35, 25, 20, 60];
+      const columnWidths = calculateColumnWidths([45, 35, 25, 20, 60], contentWidth);
       
       const rows = data.theftReports.map((t: any) => [
         t.book_title || t.books?.title || 'Unknown',
@@ -352,7 +434,7 @@ const generateSimplePDF = async (data: any, title: string, reportType: string): 
 
     else if (reportType === 'group_borrowings' && data.groupBorrowings) {
       const headers = ['Group ID', 'Class Name', 'Book Title', 'Date Borrowed', 'Due Date', 'Loan Status'];
-      const columnWidths = [25, 30, 50, 30, 30, 20];
+      const columnWidths = calculateColumnWidths([25, 30, 50, 30, 30, 20], contentWidth);
       
       const rows = data.groupBorrowings.map((g: any) => [
         g.group_id || 'N/A',
@@ -378,7 +460,7 @@ const generateSimplePDF = async (data: any, title: string, reportType: string): 
         yPosition += 15;
         
         const bookHeaders = ['Category', 'Total Books', 'Available', 'Borrowed', 'Lost/Damaged'];
-        const bookWidths = [40, 30, 30, 30, 35];
+        const bookWidths = calculateColumnWidths([40, 30, 30, 30, 35], contentWidth);
         const bookRows = summaryData.books.map((b: any) => [
           b.category || 'Unknown',
           b.total?.toString() || '0',
@@ -399,7 +481,7 @@ const generateSimplePDF = async (data: any, title: string, reportType: string): 
         yPosition += 15;
         
         const studentHeaders = ['Class', 'Total Students', 'Active Borrowers', 'Overdue Books', 'Total Fines'];
-        const studentWidths = [30, 35, 35, 35, 30];
+        const studentWidths = calculateColumnWidths([30, 35, 35, 35, 30], contentWidth);
         const studentRows = summaryData.students.map((s: any) => [
           s.class_grade || 'Unknown',
           s.total_students?.toString() || '0',
@@ -412,17 +494,96 @@ const generateSimplePDF = async (data: any, title: string, reportType: string): 
       }
     }
 
+    else if (reportType === 'staff_overdue_books' && data.overdueBooks) {
+      const headers = ['Staff Name', 'Department', 'Position', 'Book Title', 'Due Date', 'Days Overdue', 'Fine Amount'];
+      const columnWidths = calculateColumnWidths([35, 25, 25, 40, 25, 20, 25], contentWidth);
+      
+      const rows = data.overdueBooks.map((b: any) => [
+        `${b.staff?.first_name || 'Unknown'} ${b.staff?.last_name || 'Staff'}`.trim(),
+        b.staff?.department || 'General',
+        b.staff?.position || 'N/A',
+        b.book_title || 'Unknown Book',
+        b.due_date ? new Date(b.due_date).toLocaleDateString() : 'N/A',
+        formatDaysOverdue(b.days_overdue || 0),
+        `KSh ${b.fine_amount || 0}`
+      ]);
+      
+      addTable(headers, rows, columnWidths);
+    }
+
     else if (reportType === 'staff_activity' && data.staffActivity) {
       const headers = ['Staff Name', 'Department', 'Books Borrowed', 'Active Loans', 'Overdue Books', 'Total Fines'];
-      const columnWidths = [40, 30, 25, 25, 20, 25];
+      const columnWidths = calculateColumnWidths([40, 30, 25, 25, 20, 25], contentWidth);
       
       const rows = data.staffActivity.map((s: any) => [
-        `${s.first_name || 'Unknown'} ${s.last_name || ''}`.trim(),
-        s.department || 'N/A',
-        s.total_borrowed?.toString() || '0',
-        s.active_loans?.toString() || '0',
-        s.overdue_count?.toString() || '0',
+        `${s.staff?.first_name || s.first_name || 'Unknown'} ${s.staff?.last_name || s.last_name || ''}`.trim(),
+        s.staff?.department || s.department || 'N/A',
+        s.total_borrowings?.toString() || s.total_borrowed?.toString() || '0',
+        s.active_borrowings?.toString() || s.active_loans?.toString() || '0',
+        s.overdue_borrowings?.toString() || s.overdue_count?.toString() || '0',
         `KSh ${s.total_fines || 0}`
+      ]);
+      
+      addTable(headers, rows, columnWidths);
+    }
+
+    else if (reportType === 'staff_borrowing_trends' && data.staffTrends) {
+      const headers = ['Date', 'Total Borrowings', 'Unique Staff', 'Returned Same Day', 'Avg Duration (Days)'];
+      const columnWidths = calculateColumnWidths([30, 30, 25, 30, 35], contentWidth);
+      
+      const rows = data.staffTrends.map((t: any) => [
+        t.date ? new Date(t.date).toLocaleDateString() : 'N/A',
+        t.total_borrowings?.toString() || '0',
+        t.unique_staff?.toString() || '0',
+        t.returned_same_day?.toString() || '0',
+        t.avg_duration_days ? t.avg_duration_days.toFixed(1) : '0.0'
+      ]);
+      
+      addTable(headers, rows, columnWidths);
+    }
+
+    else if (reportType === 'staff_most_borrowed' && data.staffMostBorrowed) {
+      const headers = ['Book Title', 'Author', 'Borrow Count', 'Unique Staff Borrowers', 'Last Borrowed'];
+      const columnWidths = calculateColumnWidths([50, 40, 25, 35, 30], contentWidth);
+      
+      const rows = data.staffMostBorrowed.map((b: any) => [
+        b.book_title || 'Unknown Book',
+        b.book_author || 'Unknown Author',
+        b.borrow_count?.toString() || '0',
+        b.unique_staff_borrowers?.toString() || '0',
+        b.last_borrowed ? new Date(b.last_borrowed).toLocaleDateString() : 'N/A'
+      ]);
+      
+      addTable(headers, rows, columnWidths);
+    }
+
+    else if (reportType === 'staff_borrowing_history' && data.staffHistory) {
+      const headers = ['Staff Name', 'Department', 'Book Title', 'Borrowed Date', 'Due Date', 'Status', 'Days Overdue'];
+      const columnWidths = calculateColumnWidths([35, 25, 40, 25, 25, 20, 25], contentWidth);
+      
+      const rows = data.staffHistory.map((h: any) => [
+        `${h.staff_first_name || 'Unknown'} ${h.staff_last_name || 'Staff'}`.trim(),
+        h.department || 'General',
+        h.book_title || 'Unknown Book',
+        h.borrowed_date ? new Date(h.borrowed_date).toLocaleDateString() : 'N/A',
+        h.due_date ? new Date(h.due_date).toLocaleDateString() : 'N/A',
+        h.status || 'Active',
+        h.days_overdue ? formatDaysOverdue(h.days_overdue) : '0 days'
+      ]);
+      
+      addTable(headers, rows, columnWidths);
+    }
+
+    else if (reportType === 'class_borrowing_report' && data.classBorrowing) {
+      const headers = ['Class Grade', 'Total Students', 'Total Borrowings', 'Active Borrowings', 'Overdue Borrowings'];
+      const columnWidths = calculateColumnWidths([30, 30, 35, 35, 35], contentWidth);
+      
+      const rows = data.classBorrowing.map((c: any) => [
+        c.class_grade || 'Unknown Class',
+        c.total_students?.toString() || '0',
+        c.total_borrowings?.toString() || '0',
+        c.active_borrowings?.toString() || '0',
+        c.overdue_borrowings?.toString() || '0'
       ]);
       
       addTable(headers, rows, columnWidths);
@@ -430,7 +591,7 @@ const generateSimplePDF = async (data: any, title: string, reportType: string): 
 
     else if (reportType === 'book_suppliers' && data.suppliers) {
       const headers = ['Supplier Name', 'Books Supplied', 'Book Categories', 'Total Copies', 'Total Value'];
-      const columnWidths = [45, 25, 40, 25, 30];
+      const columnWidths = calculateColumnWidths([45, 25, 40, 25, 30], contentWidth);
       
       const rows = data.suppliers.map((s: any) => [
         s.supplier_name || 'Unknown',
@@ -443,13 +604,51 @@ const generateSimplePDF = async (data: any, title: string, reportType: string): 
       addTable(headers, rows, columnWidths);
     }
 
-    // If no specific data found, show a message
+    // If no specific data found, try to create a generic table from available data
     else {
-      doc.setFontSize(12);
-      doc.setTextColor(107, 114, 128);
-      doc.text('No data available for this report type.', margin, yPosition);
-      doc.text(`Report Type: ${reportType}`, margin, yPosition + 15);
-      doc.text(`Available Data Keys: ${Object.keys(data).join(', ')}`, margin, yPosition + 30);
+      // Try to find any array data that could be displayed as a table
+      const dataKeys = Object.keys(data);
+      const arrayData = dataKeys.find(key => Array.isArray(data[key]) && data[key].length > 0);
+      
+      if (arrayData && data[arrayData].length > 0) {
+        // Create generic table from first array found
+        const items = data[arrayData];
+        const firstItem = items[0];
+        
+        if (typeof firstItem === 'object' && firstItem !== null) {
+          // Generate headers from object keys
+          const headers = Object.keys(firstItem).map(key => 
+            key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+          );
+          const columnWidths = headers.map(() => Math.floor(contentWidth / headers.length));
+          
+          // Generate rows from data
+          const rows = items.slice(0, 50).map((item: any) => 
+            Object.keys(firstItem).map(key => {
+              const value = item[key];
+              if (value === null || value === undefined) return 'N/A';
+              if (typeof value === 'object') return JSON.stringify(value).substring(0, 20) + '...';
+              return value.toString();
+            })
+          );
+          
+          addTable(headers, rows, columnWidths);
+        } else {
+          // Simple array of primitives
+          const headers = ['Value'];
+          const columnWidths = [contentWidth];
+          const rows = items.slice(0, 50).map((item: any) => [item?.toString() || 'N/A']);
+          
+          addTable(headers, rows, columnWidths);
+        }
+      } else {
+        // No data available message
+        doc.setFontSize(12);
+        doc.setTextColor(107, 114, 128);
+        doc.text('No data available for this report type.', margin, yPosition);
+        doc.text(`Report Type: ${reportType}`, margin, yPosition + 15);
+        doc.text(`Available Data Keys: ${Object.keys(data).join(', ')}`, margin, yPosition + 30);
+      }
     }
 
     // Footer on all pages

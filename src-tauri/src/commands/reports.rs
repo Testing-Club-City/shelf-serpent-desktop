@@ -98,12 +98,14 @@ pub async fn get_books_by_supplier(
 
 #[tauri::command]
 pub async fn get_staff_overdue_books(
+    start_date: Option<String>,
+    end_date: Option<String>,
     state: State<'_, DatabaseState>,
 ) -> Result<Value, String> {
     let result = {
         let conn = state.get_connection().lock().map_err(|e| format!("Database lock error: {}", e))?;
         
-        let query = "SELECT 
+        let mut query = "SELECT 
             b.id as borrowing_id,
             b.borrowed_date,
             b.due_date,
@@ -134,10 +136,16 @@ pub async fn get_staff_overdue_books(
         WHERE b.borrower_type = 'staff' 
         AND b.status = 'active'
         AND b.due_date < date('now')
-        AND (b.deleted = 0 OR b.deleted IS NULL)
-        ORDER BY b.due_date ASC";
+        AND (b.deleted = 0 OR b.deleted IS NULL)".to_string();
         
-        let mut stmt = conn.prepare(query).map_err(|e| format!("Query prepare error: {}", e))?;
+        // Add date filtering if provided
+        if let (Some(start), Some(end)) = (&start_date, &end_date) {
+            query.push_str(&format!(" AND b.borrowed_date >= '{}' AND b.borrowed_date <= '{}'", start, end));
+        }
+        
+        query.push_str(" ORDER BY b.due_date ASC");
+        
+        let mut stmt = conn.prepare(&query).map_err(|e| format!("Query prepare error: {}", e))?;
         
         let rows = stmt.query_map([], |row| {
             Ok(json!({
@@ -145,11 +153,13 @@ pub async fn get_staff_overdue_books(
                 "borrowed_date": row.get::<_, String>(1)?,
                 "due_date": row.get::<_, String>(2)?,
                 "status": row.get::<_, String>(3)?,
-                "staff_first_name": row.get::<_, String>(4)?,
-                "staff_last_name": row.get::<_, String>(5)?,
-                "staff_id": row.get::<_, String>(6)?,
-                "department": row.get::<_, Option<String>>(7)?,
-                "position": row.get::<_, Option<String>>(8)?,
+                "staff": {
+                    "first_name": row.get::<_, String>(4)?,
+                    "last_name": row.get::<_, String>(5)?,
+                    "staff_id": row.get::<_, String>(6)?,
+                    "department": row.get::<_, Option<String>>(7)?,
+                    "position": row.get::<_, Option<String>>(8)?
+                },
                 "book_title": row.get::<_, String>(9)?,
                 "book_author": row.get::<_, String>(10)?,
                 "isbn": row.get::<_, Option<String>>(11)?,
@@ -176,12 +186,14 @@ pub async fn get_staff_overdue_books(
 
 #[tauri::command]
 pub async fn get_staff_activity_report(
+    start_date: Option<String>,
+    end_date: Option<String>,
     state: State<'_, DatabaseState>,
 ) -> Result<Value, String> {
     let result = {
         let conn = state.get_connection().lock().map_err(|e| format!("Database lock error: {}", e))?;
         
-        let query = "SELECT 
+        let mut query = "SELECT 
             st.id,
             st.first_name,
             st.last_name,
@@ -197,21 +209,30 @@ pub async fn get_staff_activity_report(
                 julianday(b.returned_date) - julianday(b.borrowed_date) 
                 ELSE NULL END) as avg_borrowing_duration
         FROM staff st
-        LEFT JOIN borrowings b ON st.id = b.staff_id AND b.borrower_type = 'staff' AND (b.deleted = 0 OR b.deleted IS NULL)
-        WHERE (st.deleted = 0 OR st.deleted IS NULL) AND st.status = 'active'
-        GROUP BY st.id, st.first_name, st.last_name, st.staff_id, st.department, st.position
-        ORDER BY total_borrowings DESC, st.last_name, st.first_name";
+        LEFT JOIN borrowings b ON st.id = b.staff_id AND b.borrower_type = 'staff' AND (b.deleted = 0 OR b.deleted IS NULL)".to_string();
         
-        let mut stmt = conn.prepare(query).map_err(|e| format!("Query prepare error: {}", e))?;
+        let mut where_clause = " WHERE (st.deleted = 0 OR st.deleted IS NULL) AND st.status = 'active'".to_string();
+        
+        // Add date filtering if provided
+        if let (Some(start), Some(end)) = (&start_date, &end_date) {
+            where_clause.push_str(&format!(" AND (b.borrowed_date IS NULL OR (b.borrowed_date >= '{}' AND b.borrowed_date <= '{}'))", start, end));
+        }
+        
+        query.push_str(&where_clause);
+        query.push_str(" GROUP BY st.id, st.first_name, st.last_name, st.staff_id, st.department, st.position ORDER BY total_borrowings DESC, st.last_name, st.first_name");
+        
+        let mut stmt = conn.prepare(&query).map_err(|e| format!("Query prepare error: {}", e))?;
         
         let rows = stmt.query_map([], |row| {
             Ok(json!({
-                "staff_id": row.get::<_, String>(0)?,
-                "first_name": row.get::<_, String>(1)?,
-                "last_name": row.get::<_, String>(2)?,
-                "staff_identifier": row.get::<_, String>(3)?,
-                "department": row.get::<_, Option<String>>(4)?,
-                "position": row.get::<_, Option<String>>(5)?,
+                "staff": {
+                    "id": row.get::<_, String>(0)?,
+                    "first_name": row.get::<_, String>(1)?,
+                    "last_name": row.get::<_, String>(2)?,
+                    "staff_id": row.get::<_, String>(3)?,
+                    "department": row.get::<_, Option<String>>(4)?,
+                    "position": row.get::<_, Option<String>>(5)?
+                },
                 "total_borrowings": row.get::<_, i32>(6)?,
                 "active_borrowings": row.get::<_, i32>(7)?,
                 "returned_borrowings": row.get::<_, i32>(8)?,
@@ -238,12 +259,14 @@ pub async fn get_staff_activity_report(
 
 #[tauri::command]
 pub async fn get_staff_borrowing_trends(
+    start_date: Option<String>,
+    end_date: Option<String>,
     state: State<'_, DatabaseState>,
 ) -> Result<Value, String> {
     let result = {
         let conn = state.get_connection().lock().map_err(|e| format!("Database lock error: {}", e))?;
         
-        let query = "SELECT 
+        let mut query = "SELECT 
             DATE(b.borrowed_date) as borrow_date,
             COUNT(*) as total_borrowings,
             COUNT(DISTINCT b.staff_id) as unique_staff,
@@ -253,12 +276,18 @@ pub async fn get_staff_borrowing_trends(
                 ELSE NULL END) as avg_duration
         FROM borrowings b
         WHERE b.borrower_type = 'staff' 
-        AND (b.deleted = 0 OR b.deleted IS NULL)
-        AND b.borrowed_date >= date('now', '-90 days')
-        GROUP BY DATE(b.borrowed_date)
-        ORDER BY borrow_date DESC";
+        AND (b.deleted = 0 OR b.deleted IS NULL)".to_string();
         
-        let mut stmt = conn.prepare(query).map_err(|e| format!("Query prepare error: {}", e))?;
+        // Add date filtering if provided, otherwise use default 90 days
+        if let (Some(start), Some(end)) = (&start_date, &end_date) {
+            query.push_str(&format!(" AND b.borrowed_date >= '{}' AND b.borrowed_date <= '{}'", start, end));
+        } else {
+            query.push_str(" AND b.borrowed_date >= date('now', '-90 days')");
+        }
+        
+        query.push_str(" GROUP BY DATE(b.borrowed_date) ORDER BY borrow_date DESC");
+        
+        let mut stmt = conn.prepare(&query).map_err(|e| format!("Query prepare error: {}", e))?;
         
         let rows = stmt.query_map([], |row| {
             Ok(json!({
@@ -287,12 +316,14 @@ pub async fn get_staff_borrowing_trends(
 
 #[tauri::command]
 pub async fn get_staff_most_borrowed_books(
+    start_date: Option<String>,
+    end_date: Option<String>,
     state: State<'_, DatabaseState>,
 ) -> Result<Value, String> {
     let result = {
         let conn = state.get_connection().lock().map_err(|e| format!("Database lock error: {}", e))?;
         
-        let query = "SELECT 
+        let mut query = "SELECT 
             COALESCE(bk.title, bc.title, 'Unknown Book') as book_title,
             COALESCE(bk.author, bc.author, 'Unknown Author') as book_author,
             COALESCE(bk.isbn, bc.isbn) as isbn,
@@ -306,13 +337,16 @@ pub async fn get_staff_most_borrowed_books(
         LEFT JOIN book_copies bc ON b.book_copy_id = bc.id AND (bc.deleted = 0 OR bc.deleted IS NULL)
         LEFT JOIN staff st ON b.staff_id = st.id AND (st.deleted = 0 OR st.deleted IS NULL)
         WHERE b.borrower_type = 'staff' 
-        AND (b.deleted = 0 OR b.deleted IS NULL)
-        GROUP BY COALESCE(bk.id, bc.book_id), book_title, book_author, isbn, publisher
-        HAVING borrow_count > 0
-        ORDER BY borrow_count DESC, last_borrowed DESC
-        LIMIT 50";
+        AND (b.deleted = 0 OR b.deleted IS NULL)".to_string();
         
-        let mut stmt = conn.prepare(query).map_err(|e| format!("Query prepare error: {}", e))?;
+        // Add date filtering if provided
+        if let (Some(start), Some(end)) = (&start_date, &end_date) {
+            query.push_str(&format!(" AND b.borrowed_date >= '{}' AND b.borrowed_date <= '{}'", start, end));
+        }
+        
+        query.push_str(" GROUP BY COALESCE(bk.id, bc.book_id), book_title, book_author, isbn, publisher HAVING borrow_count > 0 ORDER BY borrow_count DESC, last_borrowed DESC LIMIT 50");
+        
+        let mut stmt = conn.prepare(&query).map_err(|e| format!("Query prepare error: {}", e))?;
         
         let rows = stmt.query_map([], |row| {
             Ok(json!({
@@ -345,12 +379,14 @@ pub async fn get_staff_most_borrowed_books(
 #[tauri::command]
 pub async fn get_staff_borrowing_history(
     staff_id: Option<String>,
+    start_date: Option<String>,
+    end_date: Option<String>,
     state: State<'_, DatabaseState>,
 ) -> Result<Value, String> {
     let result = {
         let conn = state.get_connection().lock().map_err(|e| format!("Database lock error: {}", e))?;
         
-        let query = if staff_id.is_some() {
+        let mut query = if staff_id.is_some() {
             "SELECT 
                 b.id,
                 b.borrowed_date,
@@ -380,8 +416,7 @@ pub async fn get_staff_borrowing_history(
             LEFT JOIN book_copies bc ON b.book_copy_id = bc.id AND (bc.deleted = 0 OR bc.deleted IS NULL)
             WHERE b.borrower_type = 'staff' 
             AND st.id = ?
-            AND (b.deleted = 0 OR b.deleted IS NULL)
-            ORDER BY b.borrowed_date DESC"
+            AND (b.deleted = 0 OR b.deleted IS NULL)".to_string()
         } else {
             "SELECT 
                 b.id,
@@ -411,12 +446,21 @@ pub async fn get_staff_borrowing_history(
             LEFT JOIN books bk ON b.book_id = bk.id AND (bk.deleted = 0 OR bk.deleted IS NULL)
             LEFT JOIN book_copies bc ON b.book_copy_id = bc.id AND (bc.deleted = 0 OR bc.deleted IS NULL)
             WHERE b.borrower_type = 'staff' 
-            AND (b.deleted = 0 OR b.deleted IS NULL)
-            ORDER BY b.borrowed_date DESC
-            LIMIT 1000"
+            AND (b.deleted = 0 OR b.deleted IS NULL)".to_string()
         };
         
-        let mut stmt = conn.prepare(query).map_err(|e| format!("Query prepare error: {}", e))?;
+        // Add date filtering if provided
+        if let (Some(start), Some(end)) = (&start_date, &end_date) {
+            query.push_str(&format!(" AND b.borrowed_date >= '{}' AND b.borrowed_date <= '{}'", start, end));
+        }
+        
+        if staff_id.is_none() {
+            query.push_str(" LIMIT 1000");
+        }
+        
+        query.push_str(" ORDER BY b.borrowed_date DESC");
+        
+        let mut stmt = conn.prepare(&query).map_err(|e| format!("Query prepare error: {}", e))?;
         
         let row_mapper = |row: &rusqlite::Row| -> Result<serde_json::Value, rusqlite::Error> {
             Ok(json!({
@@ -464,12 +508,13 @@ pub async fn get_staff_borrowing_history(
 
 #[tauri::command]
 pub async fn get_student_overdue_books(
+    start_date: Option<String>,
+    end_date: Option<String>,
     state: State<'_, DatabaseState>,
 ) -> Result<Value, String> {
     let conn = state.get_connection().lock().map_err(|e| format!("Database lock error: {}", e))?;
     
-    // Use the exact same pattern as get_borrowings_with_details for consistency
-    let query = "SELECT 
+    let mut query = "SELECT 
         b.id, b.student_id, b.book_id, b.borrowed_date, b.due_date, b.returned_date,
         b.status, b.fine_amount, b.notes, b.tracking_code, b.borrower_type, b.staff_id,
         b.condition_at_return,
@@ -492,13 +537,16 @@ pub async fn get_student_overdue_books(
     WHERE b.deleted = 0
       AND b.status = 'active' 
       AND b.student_id IS NOT NULL
-      AND b.due_date < date('now')
-    ORDER BY 
-        CASE WHEN b.status = 'active' THEN 0 ELSE 1 END,
-        b.created_at DESC,
-        b.borrowed_date DESC";
+      AND b.due_date < date('now')".to_string();
     
-    let mut stmt = conn.prepare(query).map_err(|e| format!("Query prepare error: {}", e))?;
+    // Add date filtering if provided
+    if let (Some(start), Some(end)) = (&start_date, &end_date) {
+        query.push_str(&format!(" AND b.borrowed_date >= '{}' AND b.borrowed_date <= '{}'", start, end));
+    }
+    
+    query.push_str(" ORDER BY CASE WHEN b.status = 'active' THEN 0 ELSE 1 END, b.created_at DESC, b.borrowed_date DESC");
+    
+    let mut stmt = conn.prepare(&query).map_err(|e| format!("Query prepare error: {}", e))?;
     
     let borrowing_iter = stmt.query_map([], |row| {
         let borrower_type = row.get::<_, Option<String>>("borrower_type")
@@ -669,39 +717,43 @@ pub async fn get_borrowing_statistics(
 #[tauri::command]
 pub async fn get_popular_books(
     limit: Option<i32>,
+    start_date: Option<String>,
+    end_date: Option<String>,
     state: State<'_, DatabaseState>,
 ) -> Result<Value, String> {
     let limit = limit.unwrap_or(10);
     let conn = state.get_connection().lock().map_err(|e| format!("Database lock error: {}", e))?;
     
-    let query = "SELECT 
+    let mut query = "SELECT 
         b.title,
         b.author,
         b.isbn,
-        CASE 
-            WHEN c.name IS NOT NULL AND c.name != \"\" THEN c.name
-            WHEN b.category_id IS NOT NULL THEN \"Category ID: \" || b.category_id
-            ELSE \"Uncategorized\"
-        END as category,
+        c.name as category_name,
         COUNT(br.id) as borrow_count,
         MAX(br.borrowed_date) as last_borrowed
     FROM books b
-    LEFT JOIN categories c ON b.category_id = c.id AND (c.deleted = 0 OR c.deleted IS NULL)
-    LEFT JOIN borrowings br ON b.id = br.book_id AND (br.deleted = 0 OR br.deleted IS NULL)
-    WHERE (b.deleted = 0 OR b.deleted IS NULL)
-    GROUP BY b.id, b.title, b.author, b.isbn, c.name, b.category_id
-    HAVING borrow_count > 0
-    ORDER BY borrow_count DESC, last_borrowed DESC
-    LIMIT ?";
+    LEFT JOIN categories c ON b.category_id = c.id
+    LEFT JOIN borrowings br ON b.id = br.book_id AND (br.deleted = 0 OR br.deleted IS NULL)".to_string();
     
-    let mut stmt = conn.prepare(query).map_err(|e| format!("Query prepare error: {}", e))?;
+    let mut where_clause = " WHERE (b.deleted = 0 OR b.deleted IS NULL)".to_string();
+    
+    // Add date filtering if provided
+    if let (Some(start), Some(end)) = (&start_date, &end_date) {
+        where_clause.push_str(&format!(" AND (br.borrowed_date IS NULL OR (br.borrowed_date >= '{}' AND br.borrowed_date <= '{}'))", start, end));
+    }
+    
+    query.push_str(&where_clause);
+    query.push_str(" GROUP BY b.id, b.title, b.author, b.isbn, c.name HAVING borrow_count > 0 ORDER BY borrow_count DESC, last_borrowed DESC LIMIT ?");
+    
+    let mut stmt = conn.prepare(&query).map_err(|e| format!("Query prepare error: {}", e))?;
     
     let rows = stmt.query_map([limit], |row| {
+        let category_name = row.get::<_, Option<String>>(3)?;
         Ok(json!({
             "title": row.get::<_, String>(0)?,
             "author": row.get::<_, String>(1)?,
             "isbn": row.get::<_, Option<String>>(2)?,
-            "category": row.get::<_, String>(3)?,
+            "category": category_name.unwrap_or_else(|| "General".to_string()),
             "borrow_count": row.get::<_, i32>(4)?,
             "last_borrowed": row.get::<_, Option<String>>(5)?
         }))
@@ -721,24 +773,32 @@ pub async fn get_popular_books(
 
 #[tauri::command]
 pub async fn get_class_borrowing_report(
+    start_date: Option<String>,
+    end_date: Option<String>,
     state: State<'_, DatabaseState>,
 ) -> Result<Value, String> {
     let conn = state.get_connection().lock().map_err(|e| format!("Database lock error: {}", e))?;
     
-    let query = "SELECT 
+    let mut query = "SELECT 
         s.class_grade,
         COUNT(DISTINCT s.id) as total_students,
         COUNT(b.id) as total_borrowings,
         COUNT(CASE WHEN b.status = 'active' THEN 1 END) as active_borrowings,
         COUNT(CASE WHEN b.status = 'active' AND b.due_date < date('now') THEN 1 END) as overdue_borrowings
     FROM students s
-    LEFT JOIN borrowings b ON s.id = b.student_id AND (b.deleted = 0 OR b.deleted IS NULL)
-    WHERE (s.deleted = 0 OR s.deleted IS NULL) AND (s.status = 'active' OR s.status IS NULL)
-    GROUP BY s.class_grade
-    HAVING s.class_grade IS NOT NULL AND s.class_grade != ''
-    ORDER BY s.class_grade";
+    LEFT JOIN borrowings b ON s.id = b.student_id AND (b.deleted = 0 OR b.deleted IS NULL)".to_string();
     
-    let mut stmt = conn.prepare(query).map_err(|e| format!("Query prepare error: {}", e))?;
+    let mut where_clause = " WHERE (s.deleted = 0 OR s.deleted IS NULL) AND (s.status = 'active' OR s.status IS NULL)".to_string();
+    
+    // Add date filtering if provided
+    if let (Some(start), Some(end)) = (&start_date, &end_date) {
+        where_clause.push_str(&format!(" AND (b.borrowed_date IS NULL OR (b.borrowed_date >= '{}' AND b.borrowed_date <= '{}'))", start, end));
+    }
+    
+    query.push_str(&where_clause);
+    query.push_str(" GROUP BY s.class_grade HAVING s.class_grade IS NOT NULL AND s.class_grade != '' ORDER BY s.class_grade");
+    
+    let mut stmt = conn.prepare(&query).map_err(|e| format!("Query prepare error: {}", e))?;
     
     let rows = stmt.query_map([], |row| {
         Ok(json!({

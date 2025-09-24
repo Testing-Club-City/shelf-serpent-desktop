@@ -198,7 +198,7 @@ export const Reports = () => {
     queryFn: async () => {
       const { invoke } = await import('@tauri-apps/api/core');
       console.log('📚 Fetching enhanced books data for reports...');
-      return await invoke('get_books');
+      return await invoke('get_books_fast');
     },
     staleTime: 5 * 60 * 1000, // 5 minutes cache
   });
@@ -216,10 +216,14 @@ export const Reports = () => {
 
   // Report-specific queries using the new Tauri commands
   const { data: reportStudentOverdueBooks } = useQuery({
-    queryKey: ['student-overdue-books'],
+    queryKey: ['student-overdue-books', selectedDateRange],
     queryFn: async () => {
       const { invoke } = await import('@tauri-apps/api/core');
-      return await invoke('get_student_overdue_books');
+      const dateRange = getDateRange(selectedDateRange);
+      return await invoke('get_student_overdue_books', {
+        startDate: selectedDateRange === 'all_time' ? null : dateRange.start.toISOString().split('T')[0],
+        endDate: selectedDateRange === 'all_time' ? null : dateRange.end.toISOString().split('T')[0]
+      });
     },
     staleTime: 2 * 60 * 1000,
   });
@@ -243,10 +247,14 @@ export const Reports = () => {
   });
 
   const { data: reportStaffBorrowingTrends } = useQuery({
-    queryKey: ['staff-borrowing-trends'],
+    queryKey: ['staff-borrowing-trends', selectedDateRange],
     queryFn: async () => {
       const { invoke } = await import('@tauri-apps/api/core');
-      return await invoke('get_staff_borrowing_trends');
+      const dateRange = getDateRange(selectedDateRange);
+      return await invoke('get_staff_borrowing_trends', {
+        startDate: selectedDateRange === 'all_time' ? null : dateRange.start.toISOString().split('T')[0],
+        endDate: selectedDateRange === 'all_time' ? null : dateRange.end.toISOString().split('T')[0]
+      });
     },
     staleTime: 2 * 60 * 1000,
   });
@@ -1422,7 +1430,7 @@ export const Reports = () => {
         break;
       
       case 'staff_overdue_books':
-        const staffOverdueData = reportStaffOverdueBooks?.data || [];
+        const staffOverdueData = staffOverdueResponse?.data || [];
         
         reportData = {
           overdueBooks: staffOverdueData,
@@ -1466,6 +1474,11 @@ export const Reports = () => {
       
       case 'staff_borrowing_history':
         const staffHistoryData = reportStaffBorrowingHistory?.data || [];
+        console.log('Staff borrowing history data:', {
+          total: staffHistoryData.length,
+          sample: staffHistoryData[0],
+          rawData: reportStaffBorrowingHistory
+        });
         
         reportData = {
           staffHistory: staffHistoryData,
@@ -1679,7 +1692,7 @@ export const Reports = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-orange-600">Staff Affected</p>
-                  <p className="text-3xl font-bold text-orange-700">{new Set(staffOverdueBooks.map((b: any) => b.staff?.staff_id)).size}</p>
+                  <p className="text-3xl font-bold text-orange-700">{new Set(staffOverdueBooks.map((b: any) => b.staff?.first_name + ' ' + b.staff?.last_name).filter(Boolean)).size}</p>
                 </div>
                 <div className="p-3 bg-orange-100 rounded-full">
                   <Users className="w-6 h-6 text-orange-600" />

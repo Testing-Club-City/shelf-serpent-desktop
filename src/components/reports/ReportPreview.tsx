@@ -3,6 +3,30 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+
+// Utility function to format days overdue in a professional way
+const formatDaysOverdue = (days: number): string => {
+  if (!days || days <= 0) return '0 days';
+  
+  const years = Math.floor(days / 365);
+  const months = Math.floor((days % 365) / 30);
+  const remainingDays = Math.floor(days % 30);
+  
+  if (years > 0) {
+    if (months > 0) {
+      return `${years}y ${months}m`;
+    }
+    return `${years} year${years > 1 ? 's' : ''}`;
+  } else if (months > 0) {
+    if (remainingDays > 0) {
+      return `${months}m ${remainingDays}d`;
+    }
+    return `${months} month${months > 1 ? 's' : ''}`;
+  } else {
+    return `${remainingDays} day${remainingDays > 1 ? 's' : ''}`;
+  }
+};
+
 import {
   Calendar,
   TrendingUp,
@@ -42,15 +66,14 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
         const borrowingData = Array.isArray(data.borrowings) ? data.borrowings :
           Array.isArray(data) ? data : [];
         return {
-          headers: ['Class', 'Student Name', 'Admission No.', 'Book Title', 'Legacy Book ID', 'Borrowed', 'Due Date', 'Status'],
+          headers: ['Book Title', 'Admission No.', 'Student Name', 'Class', 'Borrowed', 'Due Date', 'Status'],
           rows: borrowingData.slice(0, 10).map((b: any) => [
-            b.student?.class_grade || b.class_grade || 'Unknown Class',
+            b.book?.title || b.book_title || 'Unknown Book',
+            b.student?.admission_number || b.admission_number || 'N/A',
             b.student?.first_name && b.student?.last_name
               ? `${b.student.first_name} ${b.student.last_name}`
               : b.student_name || 'Unknown',
-            b.student?.admission_number || b.admission_number || 'N/A',
-            b.book?.title || b.book_title || 'Unknown Book',
-            b.legacy_book_id || b.book?.legacy_book_id || b.book_copies?.legacy_book_id || 'N/A',
+            b.student?.class_grade || b.class_grade || 'Unknown Class',
             new Date(b.borrowed_date || b.created_at).toLocaleDateString(),
             b.due_date ? new Date(b.due_date).toLocaleDateString() : 'N/A',
             b.status || 'active'
@@ -61,17 +84,13 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
         const overdueData = Array.isArray(data.overdueBooks) ? data.overdueBooks :
           Array.isArray(data) ? data : [];
         return {
-          headers: ['Class', 'Student Name', 'Admission No.', 'Book Title', 'Legacy Book ID', 'Due Date', 'Days Overdue'],
+          headers: ['Book Title', 'Borrower Name', 'Due Date', 'Days Overdue', 'Fine Amount'],
           rows: overdueData.slice(0, 10).map((b: any) => [
-            b.student?.class_grade || b.class_grade || 'Unknown Class',
-            b.student?.first_name && b.student?.last_name
-              ? `${b.student.first_name} ${b.student.last_name}`
-              : b.student_name || 'Unknown',
-            b.student?.admission_number || b.admission_number || 'N/A',
-            b.book?.title || b.book_title || 'Unknown Book',
-            b.legacy_book_id || b.book?.legacy_book_id || b.book_copies?.legacy_book_id || 'N/A',
+            b.books?.title || b.book_title || b.book?.title || 'Unknown Book',
+            `${b.students?.first_name || b.staff?.first_name || 'Unknown'} ${b.students?.last_name || b.staff?.last_name || ''}`.trim(),
             b.due_date ? new Date(b.due_date).toLocaleDateString() : 'N/A',
-            b.days_overdue || Math.floor((new Date().getTime() - new Date(b.due_date || new Date()).getTime()) / (1000 * 3600 * 24))
+            formatDaysOverdue(b.days_overdue || 0),
+            `KSh ${b.fine_amount || 0}`
           ])
         };
 
@@ -84,7 +103,7 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
             index + 1,
             b.book?.title || b.title || 'Unknown Book',
             b.book?.author || b.author || 'Unknown Author',
-            b.book?.category_name || b.category_name || 'Unknown Category',
+            b.book?.categories?.name || b.book?.category_name || b.category_name || b.category || 'General',
             b.borrowCount || b.count || 0
           ])
         };
@@ -93,11 +112,11 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
         const studentData = Array.isArray(data.students) ? data.students :
           Array.isArray(data) ? data : [];
         return {
-          headers: ['Class', 'Student Name', 'Admission No.', 'Total Borrowed', 'Currently Borrowed'],
+          headers: ['Admission No.', 'Student Name', 'Class', 'Total Borrowed', 'Currently Borrowed'],
           rows: studentData.slice(0, 10).map((s: any) => [
-            s.class_grade || 'Unknown Class',
-            s.first_name && s.last_name ? `${s.first_name} ${s.last_name}` : 'Unknown',
             s.admission_number || 'N/A',
+            s.first_name && s.last_name ? `${s.first_name} ${s.last_name}` : 'Unknown',
+            s.class_grade || 'Unknown Class',
             s.totalBorrowed || 0,
             s.currentlyBorrowed || 0
           ])
@@ -126,9 +145,9 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
         return {
           headers: ['Staff Name', 'Department', 'Position', 'Book Title', 'Due Date', 'Days Overdue', 'Fine Amount'],
           rows: staffOverdueData.slice(0, 10).map((b: any) => [
-            `${b.staff_first_name || 'Unknown'} ${b.staff_last_name || 'Staff'}`,
-            b.department || 'General',
-            b.position || 'N/A',
+            `${b.staff?.first_name || 'Unknown'} ${b.staff?.last_name || 'Staff'}`,
+            b.staff?.department || 'General',
+            b.staff?.position || 'N/A',
             b.book_title || 'Unknown Book',
             b.due_date ? new Date(b.due_date).toLocaleDateString() : 'N/A',
             b.days_overdue || 0,
@@ -142,8 +161,8 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
         return {
           headers: ['Staff Name', 'Department', 'Total Borrowed', 'Active Loans', 'Returned Books', 'Overdue Books'],
           rows: staffActivityData.slice(0, 10).map((s: any) => [
-            `${s.first_name || 'Unknown'} ${s.last_name || 'Staff'}`,
-            s.department || 'General',
+            `${s.staff?.first_name || 'Unknown'} ${s.staff?.last_name || 'Staff'}`,
+            s.staff?.department || 'General',
             s.total_borrowings || 0,
             s.active_borrowings || 0,
             s.returned_borrowings || 0,
@@ -215,10 +234,18 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
         ];
 
       case 'overdue_books':
+        const overdueBooks = data.overdueBooks || [];
+        const uniqueStudents = new Set(overdueBooks.map((b: any) => 
+          b.students?.id || b.student?.id || b.student_id
+        ).filter(Boolean)).size;
+        const avgDaysOverdue = overdueBooks.length > 0 
+          ? Math.round(overdueBooks.reduce((sum: number, b: any) => sum + (b.days_overdue || 0), 0) / overdueBooks.length)
+          : 0;
+        
         return [
-          { label: 'Overdue Books', value: data.overdueCount || (data.overdueBooks?.length || 0), icon: AlertTriangle },
-          { label: 'Students Affected', value: data.studentsAffected || 0, icon: Users },
-          { label: 'Average Days Overdue', value: data.avgDaysOverdue || 0, icon: Calendar }
+          { label: 'Overdue Books', value: overdueBooks.length, icon: AlertTriangle },
+          { label: 'Students Affected', value: uniqueStudents, icon: Users },
+          { label: 'Average Days Overdue', value: avgDaysOverdue, icon: Calendar }
         ];
 
       case 'popular_books':
@@ -239,7 +266,7 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
         const overdueStaffBooks = data.overdueBooks || [];
         return [
           { label: 'Overdue Books', value: overdueStaffBooks.length, icon: AlertTriangle },
-          { label: 'Staff Affected', value: new Set(overdueStaffBooks.map((b: any) => b.staff_id)).size, icon: Users },
+          { label: 'Staff Affected', value: new Set(overdueStaffBooks.map((b: any) => b.staff?.first_name + ' ' + b.staff?.last_name).filter(Boolean)).size, icon: Users },
           { label: 'Total Fine Amount', value: `KSh ${overdueStaffBooks.reduce((sum: number, b: any) => sum + (b.fine_amount || 0), 0)}`, icon: Calendar }
         ];
 
