@@ -118,9 +118,9 @@ const generateSimplePDF = async (data: any, title: string, reportType: string): 
 
     // Function to add header to each page
     const addHeader = () => {
-      // Professional header background
-      doc.setFillColor(248, 250, 252);
-      doc.rect(0, 0, pageWidth, 55, 'F');
+      // Skip header background to avoid potential rendering issues in compiled app
+      // doc.setFillColor(248, 250, 252);
+      // doc.rect(0, 0, pageWidth, 55, 'F');
 
       // Add school logo if available
       if (logoBase64) {
@@ -164,19 +164,8 @@ const generateSimplePDF = async (data: any, title: string, reportType: string): 
       doc.setTextColor(107, 114, 128);
       doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - 80, 22);
       
-      // Add Tamnet watermark
-      if (tamnetLogoBase64) {
-        try {
-          const centerX = pageWidth / 2;
-          const centerY = pageHeight / 2;
-          (doc as any).saveGraphicsState();
-          (doc as any).setGState(new (doc as any).GState({ opacity: 0.08 }));
-          doc.addImage(tamnetLogoBase64, 'PNG', centerX - 60, centerY - 60, 120, 120);
-          (doc as any).restoreGraphicsState();
-        } catch (error) {
-          console.warn('Error adding watermark:', error);
-        }
-      }
+      // Skip watermark to avoid opacity issues in compiled Tauri app
+      // The opacity-based watermark causes visibility issues in production builds
     };
 
     // Function to check if new page is needed
@@ -214,31 +203,29 @@ const generateSimplePDF = async (data: any, title: string, reportType: string): 
       
       checkNewPage(headerHeight + Math.min(rows.length * rowHeight, 100));
       
-      // Table header - render each header cell with improved styling
-      doc.setFillColor(59, 130, 246); // Blue header background
-      doc.setTextColor(255, 255, 255); // White text
-      doc.setFontSize(8); // Reduced from 10 to 8
+      // Table header - simplified styling to avoid rendering issues
+      doc.setTextColor(31, 41, 55); // Dark text instead of white on blue
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
       
       let xPos = margin;
       
-      console.log('Drawing header backgrounds...');
-      // First draw all header backgrounds
-      for (let i = 0; i < headers.length; i++) {
-        console.log(`Drawing header background ${i}: x=${xPos}, y=${yPosition}, width=${columnWidths[i]}, height=${headerHeight}`);
-        doc.rect(xPos, yPosition, columnWidths[i], headerHeight, 'F');
-        xPos += columnWidths[i];
-      }
+      console.log('Drawing simplified header...');
+      // Skip header backgrounds to avoid potential rendering issues
+      // for (let i = 0; i < headers.length; i++) {
+      //   console.log(`Drawing header background ${i}: x=${xPos}, y=${yPosition}, width=${columnWidths[i]}, height=${headerHeight}`);
+      //   doc.rect(xPos, yPosition, columnWidths[i], headerHeight, 'F');
+      //   xPos += columnWidths[i];
+      // }
       
       console.log('Adding header text...');
-      // Then add all header text with proper positioning
+      // Add all header text with proper positioning
       xPos = margin;
       for (let i = 0; i < headers.length; i++) {
         const headerText = truncateText(doc, headers[i] || '', columnWidths[i] - 6);
-        const textX = xPos + 3;
-        const textY = yPosition + (headerHeight / 2) + 2;
+        const textX = xPos + 2;
+        const textY = yPosition + 8; // Simplified positioning
         console.log(`Adding header text ${i}: "${headerText}" at x=${textX}, y=${textY}`);
-        // Center text vertically in header cell
         doc.text(headerText, textX, textY);
         xPos += columnWidths[i];
       }
@@ -252,38 +239,31 @@ const generateSimplePDF = async (data: any, title: string, reportType: string): 
       
       rows.forEach((row, rowIndex) => {
         if (checkNewPage(rowHeight)) {
-          // Re-add header on new page with improved styling
-          doc.setFillColor(59, 130, 246);
-          doc.setTextColor(255, 255, 255);
-          doc.setFontSize(8); // Reduced from 10 to 8
+          // Re-add header on new page with simplified styling
+          doc.setTextColor(31, 41, 55);
+          doc.setFontSize(8);
           doc.setFont('helvetica', 'bold');
           
-          // Draw header backgrounds first
-          xPos = margin;
-          for (let i = 0; i < headers.length; i++) {
-            doc.rect(xPos, yPosition, columnWidths[i], headerHeight, 'F');
-            xPos += columnWidths[i];
-          }
-          
-          // Then add header text
+          // Skip header backgrounds on new pages too
+          // Add header text only
           xPos = margin;
           for (let i = 0; i < headers.length; i++) {
             const headerText = truncateText(doc, headers[i] || '', columnWidths[i] - 6);
-            doc.text(headerText, xPos + 3, yPosition + (headerHeight / 2) + 2);
+            doc.text(headerText, xPos + 2, yPosition + 8);
             xPos += columnWidths[i];
           }
           
           yPosition += headerHeight;
           doc.setTextColor(0, 0, 0);
           doc.setFont('helvetica', 'normal');
-          doc.setFontSize(7); // Reduced from 8 to 7
+          doc.setFontSize(7);
         }
         
-        // Alternate row colors
-        if (rowIndex % 2 === 0) {
-          doc.setFillColor(248, 250, 252);
-          doc.rect(margin, yPosition, contentWidth, rowHeight, 'F');
-        }
+        // Skip alternating row colors to avoid rendering issues
+        // if (rowIndex % 2 === 0) {
+        //   doc.setFillColor(248, 250, 252);
+        //   doc.rect(margin, yPosition, contentWidth, rowHeight, 'F');
+        // }
         
         xPos = margin;
         row.forEach((cell, i) => {
