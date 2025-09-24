@@ -91,6 +91,7 @@ export const Reports = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [previewData, setPreviewData] = useState<any>(null);
   const [currentReportTitle, setCurrentReportTitle] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all'); // Track selected category
   
   const { toast } = useToast();
   const [initialLoad, setInitialLoad] = useState(true);
@@ -228,6 +229,42 @@ export const Reports = () => {
     queryFn: async () => {
       const { invoke } = await import('@tauri-apps/api/core');
       return await invoke('get_staff_overdue_books');
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const { data: reportStaffActivity } = useQuery({
+    queryKey: ['staff-activity-report'],
+    queryFn: async () => {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke('get_staff_activity_report');
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const { data: reportStaffBorrowingTrends } = useQuery({
+    queryKey: ['staff-borrowing-trends'],
+    queryFn: async () => {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke('get_staff_borrowing_trends');
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const { data: reportStaffMostBorrowed } = useQuery({
+    queryKey: ['staff-most-borrowed-books'],
+    queryFn: async () => {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke('get_staff_most_borrowed_books');
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const { data: reportStaffBorrowingHistory } = useQuery({
+    queryKey: ['staff-borrowing-history'],
+    queryFn: async () => {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke('get_staff_borrowing_history', { staff_id: null });
     },
     staleTime: 2 * 60 * 1000,
   });
@@ -673,14 +710,25 @@ export const Reports = () => {
     return students.filter(student => student.class_grade === selectedClassName);
   }, [students, selectedClass, availableClasses]);
 
+  // Helper function to check if a report type is staff-related
+  const isStaffReport = (reportType: string) => {
+    return reportType.startsWith('staff_') || reportType === 'staff_overdue_books' || reportType === 'staff_activity';
+  };
+
   // Memoized filtered borrowings for instant performance
   const filteredBorrowings = useMemo(() => {
     const borrowingsArray = borrowings?.data || [];
     if (!borrowingsArray.length) return [];
+    
+    // For staff reports, don't apply class filtering
+    if (isStaffReport(selectedReportType)) {
+      return borrowingsArray;
+    }
+    
     if (selectedClass === 'all') return borrowingsArray;
     const classStudentIds = new Set(filteredStudents.map(s => s.id));
     return borrowingsArray.filter(borrowing => classStudentIds.has(borrowing.student_id));
-  }, [borrowings?.data, selectedClass, filteredStudents]);
+  }, [borrowings?.data, selectedClass, filteredStudents, selectedReportType]);
 
   // Use the dedicated report data for overdue books
   const overdueBooks = useMemo(() => {
@@ -1378,44 +1426,27 @@ export const Reports = () => {
         
         reportData = {
           overdueBooks: staffOverdueData,
-          selectedClass: selectedClassName,
           dateRange: dateRange.label,
           reportPeriod: `${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`
         };
-        title = `Staff Overdue Books Report - ${selectedClassName} (${dateRange.label})`;
+        title = `Staff Overdue Books Report (${dateRange.label})`;
         break;
       
       case 'staff_activity':
-        const dateFilteredBorrowingsForStaff = filterByDateRange(filteredBorrowings, 'borrowed_date');
-        const staffActivityFiltered = (staffActivity as any[]).filter((activity: any) => {
-          const staffBorrowings = dateFilteredBorrowingsForStaff.filter((b: any) => b.staff?.id === activity.staff?.id);
-          return staffBorrowings.length > 0;
-        }).map((activity: any) => {
-          const staffBorrowings = dateFilteredBorrowingsForStaff.filter((b: any) => b.staff?.id === activity.staff?.id);
-          return {
-            ...activity,
-            totalBorrowings: staffBorrowings.length,
-            activeBorrowings: staffBorrowings.filter((b: any) => b.status === 'active').length,
-            returnedBorrowings: staffBorrowings.filter((b: any) => b.status === 'returned').length,
-            overdueBorrowings: staffBorrowings.filter((b: any) => 
-              b.status === 'active' && new Date(b.due_date) < new Date()
-            ).length
-          };
-        });
+        const staffActivityData = reportStaffActivity?.data || [];
         
         reportData = {
-          staffActivity: staffActivityFiltered,
-          selectedClass: selectedClassName,
+          staffActivity: staffActivityData,
           dateRange: dateRange.label,
           reportPeriod: `${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`
         };
-        title = `Staff Activity Report - ${selectedClassName} (${dateRange.label})`;
+        title = `Staff Activity Report (${dateRange.label})`;
         break;
       
       case 'staff_borrowing_trends':
-        const allBorrowingsForTrends = filterByDateRange(borrowings?.data || [], 'borrowed_date');
+        const staffTrendsData = reportStaffBorrowingTrends?.data || [];
         reportData = {
-          staffTrends: staffBorrowingTrends,
+          staffTrends: staffTrendsData,
           dateRange: dateRange.label,
           reportPeriod: `${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`
         };
@@ -1423,13 +1454,10 @@ export const Reports = () => {
         break;
       
       case 'staff_most_borrowed':
-        console.log('Staff most borrowed debug:', {
-          staffMostBorrowedCount: staffMostBorrowed.length,
-          sampleStaff: staffMostBorrowed[0]
-        });
+        const staffMostBorrowedData = reportStaffMostBorrowed?.data || [];
         
         reportData = {
-          staffMostBorrowed: staffMostBorrowed,
+          staffMostBorrowed: staffMostBorrowedData,
           dateRange: dateRange.label,
           reportPeriod: `${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`
         };
@@ -1437,13 +1465,10 @@ export const Reports = () => {
         break;
       
       case 'staff_borrowing_history':
-        console.log('Generating staff borrowing history report:', {
-          staffHistoryCount: staffBorrowingHistory.length,
-          sampleStaff: staffBorrowingHistory[0]
-        });
+        const staffHistoryData = reportStaffBorrowingHistory?.data || [];
         
         reportData = {
-          staffHistory: staffBorrowingHistory,
+          staffHistory: staffHistoryData,
           dateRange: dateRange.label,
           reportPeriod: `${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`
         };
@@ -2309,55 +2334,80 @@ export const Reports = () => {
       </div>
 
       {/* Filters Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Class Filter */}
-        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Users className="w-5 h-5 text-blue-600" />
-              Class Selection
-            </CardTitle>
-            <p className="text-sm text-gray-600">Filter reports by specific class</p>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex-1">
-                <Select value={selectedClass} onValueChange={setSelectedClass}>
-                  <SelectTrigger className="bg-white">
-                    <SelectValue placeholder="Select a class" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">
-                      <div className="flex items-center gap-2">
-                        <Users className="w-4 h-4 text-gray-500" />
-                        <span className="font-medium">All Classes</span>
-                        <span className="text-gray-500">({students?.length || 0} students)</span>
-                      </div>
-                    </SelectItem>
-                    {availableClasses.map((cls) => (
-                      <SelectItem key={cls.id} value={cls.id}>
+      <div className={`grid grid-cols-1 ${selectedCategory === 'staff' ? 'lg:grid-cols-1' : 'lg:grid-cols-2'} gap-6`}>
+        {/* Class Filter - Hidden for staff reports */}
+        {selectedCategory !== 'staff' && (
+          <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Users className="w-5 h-5 text-blue-600" />
+                Class Selection
+              </CardTitle>
+              <p className="text-sm text-gray-600">Filter reports by specific class</p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex-1">
+                  <Select value={selectedClass} onValueChange={setSelectedClass}>
+                    <SelectTrigger className="bg-white">
+                      <SelectValue placeholder="Select a class" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">
                         <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                          <span className="font-medium">{(cls as any).name || (cls as any).class_name}</span>
-                          <span className="text-gray-500">({cls.studentCount} students)</span>
+                          <Users className="w-4 h-4 text-gray-500" />
+                          <span className="font-medium">All Classes</span>
+                          <span className="text-gray-500">({students?.length || 0} students)</span>
                         </div>
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                      {availableClasses.map((cls) => (
+                        <SelectItem key={cls.id} value={cls.id}>
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            <span className="font-medium">{(cls as any).name || (cls as any).class_name}</span>
+                            <span className="text-gray-500">({cls.studentCount} students)</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="text-sm text-gray-600 bg-white px-3 py-2 rounded-md border">
+                  {selectedClass === 'all' 
+                    ? `📊 Viewing data for all ${stats.totalStudentsInClass} students`
+                    : `📊 Viewing data for ${stats.totalStudentsInClass} students in ${(() => {
+                        const classObj = availableClasses?.find(cls => cls.id === selectedClass);
+                        return classObj ? ((classObj as any).name || (classObj as any).class_name) : 'Unknown Class';
+                      })()}`
+                  }
+                </div>
               </div>
-              <div className="text-sm text-gray-600 bg-white px-3 py-2 rounded-md border">
-                {selectedClass === 'all' 
-                  ? `📊 Viewing data for all ${stats.totalStudentsInClass} students`
-                  : `📊 Viewing data for ${stats.totalStudentsInClass} students in ${(() => {
-                      const classObj = availableClasses?.find(cls => cls.id === selectedClass);
-                      return classObj ? ((classObj as any).name || (classObj as any).class_name) : 'Unknown Class';
-                    })()}`
-                }
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Staff Information Card - Shown for staff reports */}
+        {selectedCategory === 'staff' && (
+          <Card className="bg-gradient-to-r from-teal-50 to-cyan-50 border-teal-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Users className="w-5 h-5 text-teal-600" />
+                Staff Reports
+              </CardTitle>
+              <p className="text-sm text-gray-600">Generate reports for all staff members</p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="text-sm text-gray-600 bg-white px-3 py-2 rounded-md border">
+                  👨‍🏫 Viewing data for all {staffData?.length || 0} staff members
+                </div>
+                <div className="text-xs text-gray-500">
+                  Staff reports are not filtered by class since staff members don't belong to specific classes.
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Date Range Filter */}
         <Card className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
@@ -2442,6 +2492,8 @@ export const Reports = () => {
           selectedDateRange={selectedDateRange}
           availableClasses={availableClasses}
           stats={stats}
+          selectedCategory={selectedCategory}
+          onCategoryChange={setSelectedCategory}
         />
       )}
 

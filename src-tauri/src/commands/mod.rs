@@ -49,6 +49,10 @@ pub use reports::*;
 pub use reports::{
     get_books_by_supplier,
     get_staff_overdue_books,
+    get_staff_activity_report,
+    get_staff_borrowing_trends,
+    get_staff_most_borrowed_books,
+    get_staff_borrowing_history,
     get_student_overdue_books,
     get_books_by_category,
     get_borrowing_statistics,

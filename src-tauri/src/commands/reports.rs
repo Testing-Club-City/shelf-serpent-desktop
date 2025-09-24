@@ -112,9 +112,11 @@ pub async fn get_staff_overdue_books(
             st.last_name,
             st.staff_id,
             st.department,
-            bc.title as book_title,
-            bc.author as book_author,
-            bc.isbn,
+            st.position,
+            COALESCE(bk.title, bc.title, 'Unknown Book') as book_title,
+            COALESCE(bk.author, bc.author, 'Unknown Author') as book_author,
+            COALESCE(bk.isbn, bc.isbn) as isbn,
+            bc.tracking_code,
             CASE 
                 WHEN b.due_date < date('now') THEN 
                     CAST((julianday('now') - julianday(b.due_date)) AS INTEGER)
@@ -126,18 +128,20 @@ pub async fn get_staff_overdue_books(
                 ELSE 0 
             END as fine_amount
         FROM borrowings b
-        JOIN staff st ON b.borrower_id = st.id
-        JOIN books bc ON b.book_id = bc.id
+        JOIN staff st ON b.staff_id = st.id AND (st.deleted = 0 OR st.deleted IS NULL)
+        LEFT JOIN books bk ON b.book_id = bk.id AND (bk.deleted = 0 OR bk.deleted IS NULL)
+        LEFT JOIN book_copies bc ON b.book_copy_id = bc.id AND (bc.deleted = 0 OR bc.deleted IS NULL)
         WHERE b.borrower_type = 'staff' 
         AND b.status = 'active'
         AND b.due_date < date('now')
+        AND (b.deleted = 0 OR b.deleted IS NULL)
         ORDER BY b.due_date ASC";
         
         let mut stmt = conn.prepare(query).map_err(|e| format!("Query prepare error: {}", e))?;
         
         let rows = stmt.query_map([], |row| {
             Ok(json!({
-                "borrowing_id": row.get::<_, i32>(0)?,
+                "borrowing_id": row.get::<_, String>(0)?,
                 "borrowed_date": row.get::<_, String>(1)?,
                 "due_date": row.get::<_, String>(2)?,
                 "status": row.get::<_, String>(3)?,
@@ -145,11 +149,13 @@ pub async fn get_staff_overdue_books(
                 "staff_last_name": row.get::<_, String>(5)?,
                 "staff_id": row.get::<_, String>(6)?,
                 "department": row.get::<_, Option<String>>(7)?,
-                "book_title": row.get::<_, String>(8)?,
-                "book_author": row.get::<_, Option<String>>(9)?,
-                "isbn": row.get::<_, Option<String>>(10)?,
-                "days_overdue": row.get::<_, i32>(11)?,
-                "fine_amount": row.get::<_, i32>(12)?
+                "position": row.get::<_, Option<String>>(8)?,
+                "book_title": row.get::<_, String>(9)?,
+                "book_author": row.get::<_, String>(10)?,
+                "isbn": row.get::<_, Option<String>>(11)?,
+                "tracking_code": row.get::<_, Option<String>>(12)?,
+                "days_overdue": row.get::<_, i32>(13)?,
+                "fine_amount": row.get::<_, i32>(14)?
             }))
         }).map_err(|e| format!("Query execution error: {}", e))?;
         
@@ -163,7 +169,295 @@ pub async fn get_staff_overdue_books(
             "data": results,
             "total": results.len()
         })
-    }; // Connection automatically dropped here
+    }; // Connection is automatically dropped here
+    
+    Ok(result)
+}
+
+#[tauri::command]
+pub async fn get_staff_activity_report(
+    state: State<'_, DatabaseState>,
+) -> Result<Value, String> {
+    let result = {
+        let conn = state.get_connection().lock().map_err(|e| format!("Database lock error: {}", e))?;
+        
+        let query = "SELECT 
+            st.id,
+            st.first_name,
+            st.last_name,
+            st.staff_id,
+            st.department,
+            st.position,
+            COUNT(b.id) as total_borrowings,
+            COUNT(CASE WHEN b.status = 'active' THEN 1 END) as active_borrowings,
+            COUNT(CASE WHEN b.status = 'returned' THEN 1 END) as returned_borrowings,
+            COUNT(CASE WHEN b.status = 'active' AND b.due_date < date('now') THEN 1 END) as overdue_borrowings,
+            MAX(b.borrowed_date) as last_borrowed_date,
+            AVG(CASE WHEN b.returned_date IS NOT NULL THEN 
+                julianday(b.returned_date) - julianday(b.borrowed_date) 
+                ELSE NULL END) as avg_borrowing_duration
+        FROM staff st
+        LEFT JOIN borrowings b ON st.id = b.staff_id AND b.borrower_type = 'staff' AND (b.deleted = 0 OR b.deleted IS NULL)
+        WHERE (st.deleted = 0 OR st.deleted IS NULL) AND st.status = 'active'
+        GROUP BY st.id, st.first_name, st.last_name, st.staff_id, st.department, st.position
+        ORDER BY total_borrowings DESC, st.last_name, st.first_name";
+        
+        let mut stmt = conn.prepare(query).map_err(|e| format!("Query prepare error: {}", e))?;
+        
+        let rows = stmt.query_map([], |row| {
+            Ok(json!({
+                "staff_id": row.get::<_, String>(0)?,
+                "first_name": row.get::<_, String>(1)?,
+                "last_name": row.get::<_, String>(2)?,
+                "staff_identifier": row.get::<_, String>(3)?,
+                "department": row.get::<_, Option<String>>(4)?,
+                "position": row.get::<_, Option<String>>(5)?,
+                "total_borrowings": row.get::<_, i32>(6)?,
+                "active_borrowings": row.get::<_, i32>(7)?,
+                "returned_borrowings": row.get::<_, i32>(8)?,
+                "overdue_borrowings": row.get::<_, i32>(9)?,
+                "last_borrowed_date": row.get::<_, Option<String>>(10)?,
+                "avg_borrowing_duration_days": row.get::<_, Option<f64>>(11)?
+            }))
+        }).map_err(|e| format!("Query execution error: {}", e))?;
+        
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row.map_err(|e| format!("Row processing error: {}", e))?);
+        }
+        
+        json!({
+            "success": true,
+            "data": results,
+            "total": results.len()
+        })
+    }; // Connection is automatically dropped here
+    
+    Ok(result)
+}
+
+#[tauri::command]
+pub async fn get_staff_borrowing_trends(
+    state: State<'_, DatabaseState>,
+) -> Result<Value, String> {
+    let result = {
+        let conn = state.get_connection().lock().map_err(|e| format!("Database lock error: {}", e))?;
+        
+        let query = "SELECT 
+            DATE(b.borrowed_date) as borrow_date,
+            COUNT(*) as total_borrowings,
+            COUNT(DISTINCT b.staff_id) as unique_staff,
+            COUNT(CASE WHEN b.status = 'returned' THEN 1 END) as returned_same_day,
+            AVG(CASE WHEN b.returned_date IS NOT NULL THEN 
+                julianday(b.returned_date) - julianday(b.borrowed_date) 
+                ELSE NULL END) as avg_duration
+        FROM borrowings b
+        WHERE b.borrower_type = 'staff' 
+        AND (b.deleted = 0 OR b.deleted IS NULL)
+        AND b.borrowed_date >= date('now', '-90 days')
+        GROUP BY DATE(b.borrowed_date)
+        ORDER BY borrow_date DESC";
+        
+        let mut stmt = conn.prepare(query).map_err(|e| format!("Query prepare error: {}", e))?;
+        
+        let rows = stmt.query_map([], |row| {
+            Ok(json!({
+                "date": row.get::<_, String>(0)?,
+                "total_borrowings": row.get::<_, i32>(1)?,
+                "unique_staff": row.get::<_, i32>(2)?,
+                "returned_same_day": row.get::<_, i32>(3)?,
+                "avg_duration_days": row.get::<_, Option<f64>>(4)?
+            }))
+        }).map_err(|e| format!("Query execution error: {}", e))?;
+        
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row.map_err(|e| format!("Row processing error: {}", e))?);
+        }
+        
+        json!({
+            "success": true,
+            "data": results,
+            "total": results.len()
+        })
+    }; // Connection is automatically dropped here
+    
+    Ok(result)
+}
+
+#[tauri::command]
+pub async fn get_staff_most_borrowed_books(
+    state: State<'_, DatabaseState>,
+) -> Result<Value, String> {
+    let result = {
+        let conn = state.get_connection().lock().map_err(|e| format!("Database lock error: {}", e))?;
+        
+        let query = "SELECT 
+            COALESCE(bk.title, bc.title, 'Unknown Book') as book_title,
+            COALESCE(bk.author, bc.author, 'Unknown Author') as book_author,
+            COALESCE(bk.isbn, bc.isbn) as isbn,
+            COALESCE(bk.publisher, bc.publisher) as publisher,
+            COUNT(b.id) as borrow_count,
+            COUNT(DISTINCT b.staff_id) as unique_staff_borrowers,
+            MAX(b.borrowed_date) as last_borrowed,
+            GROUP_CONCAT(DISTINCT st.first_name || ' ' || st.last_name, ', ') as frequent_borrowers
+        FROM borrowings b
+        LEFT JOIN books bk ON b.book_id = bk.id AND (bk.deleted = 0 OR bk.deleted IS NULL)
+        LEFT JOIN book_copies bc ON b.book_copy_id = bc.id AND (bc.deleted = 0 OR bc.deleted IS NULL)
+        LEFT JOIN staff st ON b.staff_id = st.id AND (st.deleted = 0 OR st.deleted IS NULL)
+        WHERE b.borrower_type = 'staff' 
+        AND (b.deleted = 0 OR b.deleted IS NULL)
+        GROUP BY COALESCE(bk.id, bc.book_id), book_title, book_author, isbn, publisher
+        HAVING borrow_count > 0
+        ORDER BY borrow_count DESC, last_borrowed DESC
+        LIMIT 50";
+        
+        let mut stmt = conn.prepare(query).map_err(|e| format!("Query prepare error: {}", e))?;
+        
+        let rows = stmt.query_map([], |row| {
+            Ok(json!({
+                "book_title": row.get::<_, String>(0)?,
+                "book_author": row.get::<_, String>(1)?,
+                "isbn": row.get::<_, Option<String>>(2)?,
+                "publisher": row.get::<_, Option<String>>(3)?,
+                "borrow_count": row.get::<_, i32>(4)?,
+                "unique_staff_borrowers": row.get::<_, i32>(5)?,
+                "last_borrowed": row.get::<_, Option<String>>(6)?,
+                "frequent_borrowers": row.get::<_, Option<String>>(7)?
+            }))
+        }).map_err(|e| format!("Query execution error: {}", e))?;
+        
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row.map_err(|e| format!("Row processing error: {}", e))?);
+        }
+        
+        json!({
+            "success": true,
+            "data": results,
+            "total": results.len()
+        })
+    }; // Connection is automatically dropped here
+    
+    Ok(result)
+}
+
+#[tauri::command]
+pub async fn get_staff_borrowing_history(
+    staff_id: Option<String>,
+    state: State<'_, DatabaseState>,
+) -> Result<Value, String> {
+    let result = {
+        let conn = state.get_connection().lock().map_err(|e| format!("Database lock error: {}", e))?;
+        
+        let query = if staff_id.is_some() {
+            "SELECT 
+                b.id,
+                b.borrowed_date,
+                b.due_date,
+                b.returned_date,
+                b.status,
+                b.fine_amount,
+                b.notes,
+                b.tracking_code,
+                st.first_name,
+                st.last_name,
+                st.staff_id,
+                st.department,
+                st.position,
+                COALESCE(bk.title, bc.title, 'Unknown Book') as book_title,
+                COALESCE(bk.author, bc.author, 'Unknown Author') as book_author,
+                COALESCE(bk.isbn, bc.isbn) as isbn,
+                bc.copy_identifier,
+                CASE 
+                    WHEN b.status = 'active' AND b.due_date < date('now') THEN 
+                        CAST((julianday('now') - julianday(b.due_date)) AS INTEGER)
+                    ELSE 0 
+                END as days_overdue
+            FROM borrowings b
+            JOIN staff st ON b.staff_id = st.id AND (st.deleted = 0 OR st.deleted IS NULL)
+            LEFT JOIN books bk ON b.book_id = bk.id AND (bk.deleted = 0 OR bk.deleted IS NULL)
+            LEFT JOIN book_copies bc ON b.book_copy_id = bc.id AND (bc.deleted = 0 OR bc.deleted IS NULL)
+            WHERE b.borrower_type = 'staff' 
+            AND st.id = ?
+            AND (b.deleted = 0 OR b.deleted IS NULL)
+            ORDER BY b.borrowed_date DESC"
+        } else {
+            "SELECT 
+                b.id,
+                b.borrowed_date,
+                b.due_date,
+                b.returned_date,
+                b.status,
+                b.fine_amount,
+                b.notes,
+                b.tracking_code,
+                st.first_name,
+                st.last_name,
+                st.staff_id,
+                st.department,
+                st.position,
+                COALESCE(bk.title, bc.title, 'Unknown Book') as book_title,
+                COALESCE(bk.author, bc.author, 'Unknown Author') as book_author,
+                COALESCE(bk.isbn, bc.isbn) as isbn,
+                bc.copy_identifier,
+                CASE 
+                    WHEN b.status = 'active' AND b.due_date < date('now') THEN 
+                        CAST((julianday('now') - julianday(b.due_date)) AS INTEGER)
+                    ELSE 0 
+                END as days_overdue
+            FROM borrowings b
+            JOIN staff st ON b.staff_id = st.id AND (st.deleted = 0 OR st.deleted IS NULL)
+            LEFT JOIN books bk ON b.book_id = bk.id AND (bk.deleted = 0 OR bk.deleted IS NULL)
+            LEFT JOIN book_copies bc ON b.book_copy_id = bc.id AND (bc.deleted = 0 OR bc.deleted IS NULL)
+            WHERE b.borrower_type = 'staff' 
+            AND (b.deleted = 0 OR b.deleted IS NULL)
+            ORDER BY b.borrowed_date DESC
+            LIMIT 1000"
+        };
+        
+        let mut stmt = conn.prepare(query).map_err(|e| format!("Query prepare error: {}", e))?;
+        
+        let row_mapper = |row: &rusqlite::Row| -> Result<serde_json::Value, rusqlite::Error> {
+            Ok(json!({
+                "borrowing_id": row.get::<_, String>(0)?,
+                "borrowed_date": row.get::<_, String>(1)?,
+                "due_date": row.get::<_, String>(2)?,
+                "returned_date": row.get::<_, Option<String>>(3)?,
+                "status": row.get::<_, String>(4)?,
+                "fine_amount": row.get::<_, Option<f64>>(5)?,
+                "notes": row.get::<_, Option<String>>(6)?,
+                "tracking_code": row.get::<_, Option<String>>(7)?,
+                "staff_first_name": row.get::<_, String>(8)?,
+                "staff_last_name": row.get::<_, String>(9)?,
+                "staff_id": row.get::<_, String>(10)?,
+                "department": row.get::<_, Option<String>>(11)?,
+                "position": row.get::<_, Option<String>>(12)?,
+                "book_title": row.get::<_, String>(13)?,
+                "book_author": row.get::<_, String>(14)?,
+                "isbn": row.get::<_, Option<String>>(15)?,
+                "copy_identifier": row.get::<_, Option<String>>(16)?,
+                "days_overdue": row.get::<_, i32>(17)?
+            }))
+        };
+
+        let rows = if let Some(id) = staff_id {
+            stmt.query_map([id], row_mapper).map_err(|e| format!("Query execution error: {}", e))?
+        } else {
+            stmt.query_map([], row_mapper).map_err(|e| format!("Query execution error: {}", e))?
+        };
+        
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row.map_err(|e| format!("Row processing error: {}", e))?);
+        }
+        
+        json!({
+            "success": true,
+            "data": results,
+            "total": results.len()
+        })
+    }; // Connection is automatically dropped here
     
     Ok(result)
 }

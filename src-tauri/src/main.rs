@@ -522,6 +522,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Report commands
             commands::reports::get_books_by_supplier,
             commands::reports::get_staff_overdue_books,
+            commands::reports::get_staff_activity_report,
+            commands::reports::get_staff_borrowing_trends,
+            commands::reports::get_staff_most_borrowed_books,
+            commands::reports::get_staff_borrowing_history,
             commands::reports::get_student_overdue_books,
             commands::reports::get_books_by_category,
             commands::reports::get_borrowing_statistics,

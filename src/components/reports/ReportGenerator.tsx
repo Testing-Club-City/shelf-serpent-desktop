@@ -43,6 +43,8 @@ interface ReportGeneratorProps {
     activeBorrowings: number;
     overdueCount: number;
   };
+  selectedCategory?: string;
+  onCategoryChange?: (category: string) => void;
 }
 
 export const ReportGenerator: React.FC<ReportGeneratorProps> = ({
@@ -50,10 +52,25 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({
   selectedClass,
   selectedDateRange,
   availableClasses,
-  stats
+  stats,
+  selectedCategory: externalSelectedCategory = 'all',
+  onCategoryChange
 }) => {
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>(externalSelectedCategory);
   const [selectedComplexity, setSelectedComplexity] = useState<string>('all');
+
+  // Helper function to check if a report type is staff-related
+  const isStaffReport = (reportType: string) => {
+    return reportType.startsWith('staff_') || reportType === 'staff_overdue_books' || reportType === 'staff_activity';
+  };
+
+  // Handle category change
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category);
+    if (onCategoryChange) {
+      onCategoryChange(category);
+    }
+  };
 
   const reportTypes: ReportType[] = [
     {
@@ -229,12 +246,20 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Professional Report Generator</h2>
             <p className="text-gray-600">Generate comprehensive library reports with advanced analytics</p>
           </div>
-          <div className="text-right">
-            <div className="text-sm text-gray-500">Current Scope</div>
-            <div className="font-semibold text-gray-900">
-              {selectedClass === 'all' ? 'All Classes' : availableClasses.find(c => c.id === selectedClass)?.name || 'Selected Class'}
+          {selectedCategory !== 'staff' && (
+            <div className="text-right">
+              <div className="text-sm text-gray-500">Current Scope</div>
+              <div className="font-semibold text-gray-900">
+                {selectedClass === 'all' ? 'All Classes' : availableClasses.find(c => c.id === selectedClass)?.name || 'Selected Class'}
+              </div>
             </div>
-          </div>
+          )}
+          {selectedCategory === 'staff' && (
+            <div className="text-right">
+              <div className="text-sm text-gray-500">Report Scope</div>
+              <div className="font-semibold text-gray-900">All Staff Members</div>
+            </div>
+          )}
         </div>
 
         {/* Quick Stats */}
@@ -277,7 +302,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({
             <CardTitle className="text-sm font-medium">Filter by Category</CardTitle>
           </CardHeader>
           <CardContent>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <Select value={selectedCategory} onValueChange={handleCategoryChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
