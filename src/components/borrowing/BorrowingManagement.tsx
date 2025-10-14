@@ -245,6 +245,9 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
   const [finesPage, setFinesPage] = useState(1);
   const [staffSearchTerm, setStaffSearchTerm] = useState('');
   const [studentSearchTerm, setStudentSearchTerm] = useState('');
+  const [overdueSearchTerm, setOverdueSearchTerm] = useState('');
+  const [returnsSearchTerm, setReturnsSearchTerm] = useState('');
+  const [finesSearchTerm, setFinesSearchTerm] = useState('');
 
   // Staff borrowing search query
   const { data: staffSearchResults, isLoading: staffSearchLoading } = useQuery({
@@ -557,18 +560,80 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
       staffBorrowings = filteredActiveBorrowings.filter(b => (b as any).borrower_type === 'staff');
     }
     
-    // Filter to show only unpaid fines
-    const unpaidFines = combinedFinesData.filter(fine => fine.status === 'unpaid');
+    // Filter overdue borrowings based on search
+    let filteredOverdue = overdueBorrowings;
+    if (overdueSearchTerm.trim()) {
+      const searchLower = overdueSearchTerm.toLowerCase();
+      filteredOverdue = overdueBorrowings.filter(borrowing => {
+        const bookTitle = borrowing.books?.title?.toLowerCase() || '';
+        const bookAuthor = borrowing.books?.author?.toLowerCase() || '';
+        const borrowerName = borrowing.borrower_type === 'student' 
+          ? `${borrowing.students?.first_name || ''} ${borrowing.students?.last_name || ''}`.toLowerCase()
+          : `${borrowing.staff?.first_name || ''} ${borrowing.staff?.last_name || ''}`.toLowerCase();
+        const admissionNumber = borrowing.students?.admission_number?.toLowerCase() || '';
+        const staffId = borrowing.staff?.staff_id?.toLowerCase() || '';
+        
+        return bookTitle.includes(searchLower) || 
+               bookAuthor.includes(searchLower) || 
+               borrowerName.includes(searchLower) ||
+               admissionNumber.includes(searchLower) ||
+               staffId.includes(searchLower);
+      });
+    }
+    
+    // Filter returns based on search
+    let filteredReturns = recentReturns;
+    if (returnsSearchTerm.trim()) {
+      const searchLower = returnsSearchTerm.toLowerCase();
+      filteredReturns = recentReturns.filter(borrowing => {
+        const bookTitle = borrowing.books?.title?.toLowerCase() || '';
+        const bookAuthor = borrowing.books?.author?.toLowerCase() || '';
+        const borrowerName = borrowing.borrower_type === 'student' 
+          ? `${borrowing.students?.first_name || ''} ${borrowing.students?.last_name || ''}`.toLowerCase()
+          : `${borrowing.staff?.first_name || ''} ${borrowing.staff?.last_name || ''}`.toLowerCase();
+        const admissionNumber = borrowing.students?.admission_number?.toLowerCase() || '';
+        const staffId = borrowing.staff?.staff_id?.toLowerCase() || '';
+        const trackingCode = borrowing.tracking_code?.toLowerCase() || '';
+        
+        return bookTitle.includes(searchLower) || 
+               bookAuthor.includes(searchLower) || 
+               borrowerName.includes(searchLower) ||
+               admissionNumber.includes(searchLower) ||
+               staffId.includes(searchLower) ||
+               trackingCode.includes(searchLower);
+      });
+    }
+    
+    // Filter fines based on search
+    let filteredFines = combinedFinesData.filter(fine => fine.status === 'unpaid');
+    if (finesSearchTerm.trim()) {
+      const searchLower = finesSearchTerm.toLowerCase();
+      filteredFines = filteredFines.filter(fine => {
+        const borrowerName = fine.borrower_type === 'student'
+          ? `${fine.students?.first_name || ''} ${fine.students?.last_name || ''}`.toLowerCase()
+          : `${fine.staff?.first_name || ''} ${fine.staff?.last_name || ''}`.toLowerCase();
+        const admissionNumber = fine.students?.admission_number?.toLowerCase() || '';
+        const staffId = fine.staff?.staff_id?.toLowerCase() || '';
+        const fineType = fine.fine_type?.toLowerCase() || '';
+        const reason = fine.reason?.toLowerCase() || '';
+        
+        return borrowerName.includes(searchLower) ||
+               admissionNumber.includes(searchLower) ||
+               staffId.includes(searchLower) ||
+               fineType.includes(searchLower) ||
+               reason.includes(searchLower);
+      });
+    }
     
     return {
       activeBorrowings: getPaginatedData(studentBorrowings, activePage),
       staffBorrowings: getPaginatedData(staffBorrowings, staffPage),
       groupBorrowings: getPaginatedData(groupBorrowings || [], groupsPage),
-      overdueBorrowings: getPaginatedData(overdueBorrowings, overduePage),
-      returns: getPaginatedData(recentReturns, returnsPage),
-      fines: getPaginatedData(unpaidFines, finesPage)
+      overdueBorrowings: getPaginatedData(filteredOverdue, overduePage),
+      returns: getPaginatedData(filteredReturns, returnsPage),
+      fines: getPaginatedData(filteredFines, finesPage)
     };
-  }, [filteredActiveBorrowings, groupBorrowings, overdueBorrowings, recentReturns, combinedFinesData, activePage, staffPage, groupsPage, overduePage, returnsPage, finesPage, staffSearchTerm, staffSearchResults, studentSearchTerm, studentSearchResults]);
+  }, [filteredActiveBorrowings, groupBorrowings, overdueBorrowings, recentReturns, combinedFinesData, activePage, staffPage, groupsPage, overduePage, returnsPage, finesPage, staffSearchTerm, staffSearchResults, studentSearchTerm, studentSearchResults, overdueSearchTerm, returnsSearchTerm, finesSearchTerm]);
 
   const calculateDaysOverdue = (dueDate: string) => {
     const today = getSafeCurrentDate();
@@ -1701,6 +1766,45 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
 
         {/* Overdue Borrowings Tab */}
         <TabsContent value="overdue" className="space-y-6">
+          {/* Overdue Search */}
+          <div className="bg-white rounded-lg shadow-sm p-4">
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <input
+                    type="text"
+                    placeholder="Search overdue books by title, borrower name, or admission number..."
+                    value={overdueSearchTerm}
+                    onChange={(e) => setOverdueSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              {overdueSearchTerm && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setOverdueSearchTerm('')}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+            <div className="mt-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Badge variant="destructive" className="text-xs">
+                  {overdueBorrowings.length} Overdue Books
+                </Badge>
+              </div>
+              {overdueSearchTerm && (
+                <div className="text-sm text-gray-600">
+                  Searching: <span className="font-medium">"{overdueSearchTerm}"</span>
+                </div>
+              )}
+            </div>
+          </div>
           <div className="bg-white rounded-lg shadow-sm">
             <Table>
               <TableHeader>
@@ -1787,19 +1891,44 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
 
         {/* Returns Tab */}
         <TabsContent value="returns" className="space-y-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <h3 className="text-lg font-semibold">Recent Returns</h3>
-              <Badge variant="secondary" className="text-xs">
-                Latest First • {recentReturns.length} Total
-              </Badge>
+          {/* Returns Search */}
+          <div className="bg-white rounded-lg shadow-sm p-4">
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <input
+                    type="text"
+                    placeholder="Search by book title, author, borrower name, or admission number..."
+                    value={returnsSearchTerm}
+                    onChange={(e) => setReturnsSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              {returnsSearchTerm && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setReturnsSearchTerm('')}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  Clear
+                </Button>
+              )}
             </div>
-            <Input
-              placeholder="Search returns..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-[300px]"
-            />
+            <div className="mt-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-xs">
+                  Latest First • {recentReturns.length} Total
+                </Badge>
+              </div>
+              {returnsSearchTerm && (
+                <div className="text-sm text-gray-600">
+                  Searching: <span className="font-medium">"{returnsSearchTerm}"</span>
+                </div>
+              )}
+            </div>
           </div>
           <div className="bg-white rounded-lg shadow-sm">
             <Table>
@@ -1917,21 +2046,53 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
 
         {/* Fines Tab */}
         <TabsContent value="fines" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>All Fines</CardTitle>
-                <div className="flex items-center gap-4">
-                  <Input
-                    placeholder="Search fines..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-[300px]"
+          {/* Fines Search */}
+          <div className="bg-white rounded-lg shadow-sm p-4">
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <input
+                    type="text"
+                    placeholder="Search fines by borrower name, admission number, or fine type..."
+                    value={finesSearchTerm}
+                    onChange={(e) => setFinesSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                   />
                 </div>
               </div>
-            </CardHeader>
-            <CardContent>
+              {finesSearchTerm && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFinesSearchTerm('')}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+            <div className="mt-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-xs">
+                  {allFines.length} Total Fines
+                </Badge>
+                <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
+                  {allFines.filter(f => f.status === 'pending').length} Pending
+                </Badge>
+                <Badge variant="outline" className="text-xs text-green-600 border-green-300">
+                  {allFines.filter(f => f.status === 'paid').length} Paid
+                </Badge>
+              </div>
+              {finesSearchTerm && (
+                <div className="text-sm text-gray-600">
+                  Searching: <span className="font-medium">"{finesSearchTerm}"</span>
+                </div>
+              )}
+            </div>
+          </div>
+          <Card>
+            <CardContent className="pt-6">
               <div className="rounded-md border">
                 <Table>
                   <TableHeader>
