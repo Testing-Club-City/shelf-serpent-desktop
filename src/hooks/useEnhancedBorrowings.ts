@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { EnhancedBorrowingService, EnhancedBorrowingData } from '@/services/enhancedBorrowingService';
+import { logBorrowing } from '@/lib/activityLogger';
 
 /**
  * Enhanced hook for creating borrowings with improved validation and error handling
@@ -56,8 +57,25 @@ export const useCreateMultipleEnhancedBorrowings = () => {
       console.log('🚀 Enhanced multiple borrowings creation started:', borrowingsData.length);
       return await EnhancedBorrowingService.createMultipleBorrowings(borrowingsData);
     },
-    onSuccess: (borrowingIds: string[]) => {
+    onSuccess: (borrowingIds: string[], borrowingsData: EnhancedBorrowingData[]) => {
       console.log('✅ Enhanced multiple borrowings created successfully:', borrowingIds);
+      
+      // Log each borrowing activity
+      borrowingsData.forEach(async (borrowing, index) => {
+        try {
+          const borrowerId = borrowing.student_id || borrowing.staff_id || '';
+          const borrowerType = borrowing.borrower_type || (borrowing.student_id ? 'student' : 'staff');
+          
+          await logBorrowing.issued(
+            borrowingIds[index],
+            `Tracking: ${borrowing.tracking_code}`,
+            borrowerId,
+            borrowerType as 'student' | 'staff'
+          );
+        } catch (logError) {
+          console.error('Failed to log borrowing activity:', logError);
+        }
+      });
       
       // Invalidate all borrowing-related queries
       queryClient.invalidateQueries({ queryKey: ['borrowings'] });

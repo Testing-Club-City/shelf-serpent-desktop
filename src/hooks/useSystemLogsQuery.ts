@@ -1,6 +1,6 @@
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { invoke } from '@tauri-apps/api/core';
 
 export interface SystemLogWithUser {
   id: string;
@@ -22,63 +22,62 @@ export interface SystemLogWithUser {
 
 export const useSystemLogsQuery = () => {
   return useQuery({
-    queryKey: ['system-logs'],
+    queryKey: ['system-logs', 'local'],
     queryFn: async (): Promise<SystemLogWithUser[]> => {
-      // First get system logs
-      const { data: logsData, error: logsError } = await supabase
-        .from('system_logs')
-        .select('*')
-        .order('created_at', { ascending: false });
+      console.log('[useSystemLogsQuery] Fetching logs from local database...');
+      
+      try {
+        // Get activity logs from local database using Tauri command
+        const logsData = await invoke<any[]>('get_activity_logs', {
+          limit: 1000,
+        });
 
-      if (logsError) {
-        console.error('[useSystemLogsQuery] Failed to fetch logs:', logsError);
-        throw logsError;
-      }
+        console.log('[useSystemLogsQuery] Received logs:', logsData?.length || 0);
 
-      if (!logsData || logsData.length === 0) {
+        if (!logsData || logsData.length === 0) {
+          console.log('[useSystemLogsQuery] No logs found');
+          return [];
+        }
+
+        // Transform local database logs to match the expected format
+        const logsWithUsers: SystemLogWithUser[] = logsData.map((log: any) => {
+          // Parse details if it's a JSON string
+          let details = null;
+          if (log.details) {
+            try {
+              details = typeof log.details === 'string' ? JSON.parse(log.details) : log.details;
+            } catch (e) {
+              console.error('[useSystemLogsQuery] Failed to parse details:', e);
+              details = { raw: log.details };
+            }
+          }
+
+          return {
+            id: log.id?.toString() || Math.random().toString(),
+            created_at: log.timestamp || log.created_at || new Date().toISOString(),
+            user_id: log.user_id || null,
+            action_type: log.action || log.action_type || 'unknown',
+            resource_type: log.resource_type || log.category || 'system',
+            resource_id: log.resource_id || null,
+            details: details,
+            ip_address: null,
+            user_agent: null,
+            profiles: log.user_email ? {
+              email: log.user_email,
+              first_name: log.user_email.split('@')[0],
+              last_name: '',
+              role: 'user',
+            } : undefined,
+          };
+        });
+
+        console.log('[useSystemLogsQuery] Processed logs:', logsWithUsers.length);
+        return logsWithUsers;
+      } catch (error) {
+        console.error('[useSystemLogsQuery] Failed to fetch logs from local database:', error);
+        // Return empty array instead of throwing to prevent UI breaks
         return [];
       }
-
-      // Get unique user IDs
-      const userIds = [...new Set(logsData.map(log => log.user_id).filter(Boolean))];
-      
-      let profilesData = [];
-      if (userIds.length > 0) {
-        // Get profiles for those users
-        const { data: profiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, email, first_name, last_name, role')
-          .in('id', userIds);
-
-        if (profilesError) {
-          console.error('[useSystemLogsQuery] Failed to fetch profiles:', profilesError);
-          // Don't throw error, just continue without profiles
-        } else {
-          profilesData = profiles || [];
-        }
-      }
-
-      // Create a map of profiles by user ID
-      const profilesMap = new Map();
-      profilesData.forEach(profile => {
-        profilesMap.set(profile.id, profile);
-      });
-
-      // Combine logs with profiles and ensure proper typing
-      const logsWithUsers: SystemLogWithUser[] = logsData.map(log => ({
-        id: log.id,
-        created_at: log.created_at,
-        user_id: log.user_id,
-        action_type: log.action_type,
-        resource_type: log.resource_type,
-        resource_id: log.resource_id,
-        details: log.details as Record<string, any> | null,
-        ip_address: log.ip_address as string | null,
-        user_agent: log.user_agent,
-        profiles: log.user_id ? profilesMap.get(log.user_id) : undefined
-      }));
-
-      return logsWithUsers;
     },
     refetchInterval: 5000,
     staleTime: 2000,

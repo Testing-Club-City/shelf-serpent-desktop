@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getSafeCurrentDate, getSafeISOString } from '@/lib/dateUtils';
+import { logBorrowing, logFine } from '@/lib/activityLogger';
 import { 
   BookOpen, 
   RotateCcw, 
@@ -772,7 +773,18 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
         duration: 5000,
       });
       
-      // Log the activity
+      // Log the return activity with new logger
+      const borrowing = activeBorrowings?.find(b => b.id === returnData.borrowing_id);
+      if (borrowing) {
+        await logBorrowing.returned(
+          returnData.borrowing_id,
+          borrowing.book?.title || returnData.returned_tracking_code,
+          borrowing.student?.full_name || borrowing.staff?.full_name || 'Unknown',
+          returnData.condition_at_return
+        );
+      }
+      
+      // Log the activity (legacy system)
       await logActivity(
         returnData.isTheft ? 'theft_processed' : (returnData.isLost ? 'book_lost' : 'book_returned'),
         'borrowing',
@@ -807,6 +819,9 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
 
       // Check if this is a borrowing-based fine (has a "borrowing-" prefix)
       const isBorrowingFine = fineId.startsWith('borrowing-');
+      
+      // Find the fine for logging
+      const fine = allFines?.find(f => f.id === fineId || `borrowing-${f.related_borrowing_id}` === fineId);
       
       if (isBorrowingFine) {
         // Extract the borrowing ID from the fine ID
@@ -947,6 +962,18 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
       // Show success message
       const actionText = isBorrowingFine ? 'borrowing' : 'fine';
       const actionVerb = action === 'pay' ? 'paid' : (action === 'clear' ? 'cleared' : 'collected');
+      
+      // Log the fine activity
+      if (fine) {
+        const borrowerName = fine.student?.full_name || fine.staff?.full_name || 'Unknown';
+        const fineAmount = amount || fine.amount || 0;
+        
+        if (action === 'pay' || action === 'collect') {
+          await logFine.paid(fineId, borrowerName, fineAmount);
+        } else if (action === 'clear') {
+          await logFine.waived(fineId, borrowerName, fineAmount, 'Fine waived by administrator');
+        }
+      }
       
       toast({
         title: 'Success',

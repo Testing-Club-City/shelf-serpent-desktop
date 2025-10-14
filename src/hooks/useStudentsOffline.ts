@@ -3,6 +3,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useConnectivity } from './useConnectivity';
 import { offlineDataService } from '@/services/offlineDataService';
 import { Student, StudentWithClass } from '@/types/offline';
+import { logStudent } from '@/lib/activityLogger';
 
 class StudentsDataService {
   constructor(private isOnline: boolean) {}
@@ -167,7 +168,14 @@ export const useCreateStudentOffline = () => {
       const service = new StudentsDataService(connectivity.isOnline);
       return await service.createStudent(studentData);
     },
-    onSuccess: () => {
+    onSuccess: (studentId: string, studentData) => {
+      // Log the activity
+      logStudent.added(
+        studentId,
+        studentData.admission_number,
+        `${studentData.first_name} ${studentData.last_name}`
+      ).catch(err => console.error('Failed to log student creation:', err));
+      
       // Invalidate all student-related queries
       queryClient.invalidateQueries({ queryKey: ['students'] });
       queryClient.invalidateQueries({ queryKey: ['students-with-classes'] });
@@ -196,7 +204,23 @@ export const useUpdateStudentOffline = () => {
       const service = new StudentsDataService(connectivity.isOnline);
       return await service.updateStudent(studentId, studentData);
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      const { studentId, studentData } = variables;
+      
+      // Log the activity
+      if (studentData.admission_number || studentData.first_name || studentData.last_name) {
+        const fullName = studentData.first_name && studentData.last_name 
+          ? `${studentData.first_name} ${studentData.last_name}`
+          : 'Student';
+        
+        logStudent.updated(
+          studentId,
+          studentData.admission_number || '',
+          fullName,
+          studentData
+        ).catch(err => console.error('Failed to log student update:', err));
+      }
+      
       // Invalidate all student-related queries
       queryClient.invalidateQueries({ queryKey: ['students'] });
       queryClient.invalidateQueries({ queryKey: ['students-with-classes'] });

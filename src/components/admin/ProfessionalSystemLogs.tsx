@@ -9,7 +9,6 @@ import { useSystemLogsQuery, SystemLogWithUser } from '@/hooks/useSystemLogsQuer
 import { useStudents } from '@/hooks/useStudents';
 import { format, subDays, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 
 export const ProfessionalSystemLogs = () => {
   const { data: logs, isLoading, refetch } = useSystemLogsQuery();
@@ -102,50 +101,10 @@ export const ProfessionalSystemLogs = () => {
   // Clean duplicate logs function
   const cleanDuplicateLogs = async () => {
     try {
-      if (!logs) return;
-      
-      const duplicateGroups = new Map();
-      
-      // Group logs by potential duplicates
-      logs.forEach(log => {
-        const key = `${log.user_id}-${log.action_type}-${log.resource_type}-${log.resource_id}-${format(new Date(log.created_at), 'yyyy-MM-dd HH:mm:ss')}`;
-        if (!duplicateGroups.has(key)) {
-          duplicateGroups.set(key, []);
-        }
-        duplicateGroups.get(key).push(log);
+      toast({
+        title: 'Feature Not Available',
+        description: 'Duplicate cleaning for local database logs is not yet implemented',
       });
-      
-      // Find groups with duplicates
-      const duplicatesToDelete = [];
-      duplicateGroups.forEach(group => {
-        if (group.length > 1) {
-          // Keep the first one, delete the rest
-          duplicatesToDelete.push(...group.slice(1).map(log => log.id));
-        }
-      });
-      
-      if (duplicatesToDelete.length > 0) {
-        const { error } = await supabase
-          .from('system_logs')
-          .delete()
-          .in('id', duplicatesToDelete);
-        
-        if (error) {
-          throw error;
-        }
-        
-        toast({
-          title: 'Duplicates Cleaned',
-          description: `Removed ${duplicatesToDelete.length} duplicate log entries`,
-        });
-        
-        refetch();
-      } else {
-        toast({
-          title: 'No Duplicates Found',
-          description: 'All log entries are unique',
-        });
-      }
     } catch (error) {
       console.error('Failed to clean duplicates:', error);
       toast({

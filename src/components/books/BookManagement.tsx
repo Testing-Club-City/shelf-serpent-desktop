@@ -13,6 +13,7 @@ import { BookDetails } from './BookDetails';
 import { CategoryManagement } from '../admin/CategoryManagement';
 import { useToast } from '@/hooks/use-toast';
 import { invoke } from '@tauri-apps/api/core';
+import { logBook } from '@/lib/activityLogger';
 
 // Pagination UI components
 import {
@@ -214,6 +215,9 @@ export const BookManagement = ({ searchTerm, openAddBookForm = false }: BookMana
       // Use the new command that creates book with copies automatically
       const bookId = await invoke('create_book_with_copies', { bookData: data });
       
+      // Log the activity
+      await logBook.added(bookId as string, data.title);
+      
       setIsFormOpen(false);
       toast({
         title: 'Success',
@@ -236,6 +240,10 @@ export const BookManagement = ({ searchTerm, openAddBookForm = false }: BookMana
     if (!selectedBook) return;
     try {
       await invoke('update_book', { bookId: selectedBook.id, bookData: data });
+      
+      // Log the activity
+      await logBook.updated(selectedBook.id, data.title, data);
+      
       setIsFormOpen(false);
       setSelectedBook(null);
       toast({
@@ -257,7 +265,16 @@ export const BookManagement = ({ searchTerm, openAddBookForm = false }: BookMana
 
   const handleDeleteBook = async (id: string) => {
     try {
+      // Find the book to get its title for logging
+      const book = displayBooks.find(b => b.id === id);
+      
       await invoke('delete_book', { bookId: id });
+      
+      // Log the activity
+      if (book) {
+        await logBook.deleted(id, book.title);
+      }
+      
       toast({
         title: 'Success',
         description: 'Book deleted successfully',
