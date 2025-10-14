@@ -3076,4 +3076,167 @@ impl DatabaseManager {
 
         Ok(rows)
     }
+
+    // Activity Logging Methods
+    pub async fn insert_activity_log(&self, entry: &crate::logging::ActivityLogEntry) -> Result<()> {
+        let conn = self.lock_connection()?;
+        let details_json = entry.details.as_ref()
+            .map(|d| serde_json::to_string(d).unwrap_or_else(|_| "{}".to_string()))
+            .unwrap_or_else(|| "{}".to_string());
+
+        conn.execute(
+            "INSERT INTO activity_logs (
+                id, timestamp, level, category, action, resource_type, resource_id,
+                user_id, user_email, session_id, ip_address, user_agent, details,
+                duration_ms, error_message, stack_trace, source_file, source_line
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            rusqlite::params![
+                entry.id,
+                entry.timestamp.to_rfc3339(),
+                entry.level.to_string().to_lowercase(),
+                entry.category,
+                entry.action,
+                entry.resource_type,
+                entry.resource_id,
+                entry.user_id,
+                entry.user_email,
+                entry.session_id,
+                entry.ip_address,
+                entry.user_agent,
+                details_json,
+                entry.duration_ms,
+                entry.error_message,
+                entry.stack_trace,
+                entry.source_file,
+                entry.source_line
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub async fn get_activity_logs(&self, limit: Option<usize>) -> Result<Vec<crate::logging::ActivityLogEntry>> {
+        let conn = self.lock_connection()?;
+        let limit_clause = limit.map(|l| format!("LIMIT {}", l)).unwrap_or_default();
+        
+        let mut stmt = conn.prepare(&format!(
+            "SELECT id, timestamp, level, category, action, resource_type, resource_id,
+                    user_id, user_email, session_id, ip_address, user_agent, details,
+                    duration_ms, error_message, stack_trace, source_file, source_line
+             FROM activity_logs 
+             WHERE deleted = 0
+             ORDER BY timestamp DESC
+             {}",
+            limit_clause
+        ))?;
+
+        let entries = stmt.query_map([], |row| {
+            use crate::logging::{ActivityLogEntry, LogLevel};
+            
+            let level_str: String = row.get("level")?;
+            let level = match level_str.as_str() {
+                "trace" => LogLevel::Trace,
+                "debug" => LogLevel::Debug,
+                "info" => LogLevel::Info,
+                "warn" => LogLevel::Warning,
+                "error" => LogLevel::Error,
+                "critical" => LogLevel::Critical,
+                _ => LogLevel::Info,
+            };
+
+            let timestamp_str: String = row.get("timestamp")?;
+            let timestamp = DateTime::parse_from_rfc3339(&timestamp_str)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now());
+
+            let details_str: Option<String> = row.get("details")?;
+            let details = details_str.and_then(|s| serde_json::from_str(&s).ok());
+
+            Ok(ActivityLogEntry {
+                id: row.get("id")?,
+                timestamp,
+                level,
+                category: row.get("category")?,
+                action: row.get("action")?,
+                resource_type: row.get("resource_type")?,
+                resource_id: row.get("resource_id")?,
+                user_id: row.get("user_id")?,
+                user_email: row.get("user_email")?,
+                session_id: row.get("session_id")?,
+                ip_address: row.get("ip_address")?,
+                user_agent: row.get("user_agent")?,
+                details,
+                duration_ms: row.get("duration_ms")?,
+                error_message: row.get("error_message")?,
+                stack_trace: row.get("stack_trace")?,
+                source_file: row.get("source_file")?,
+                source_line: row.get("source_line")?,
+            })
+        })?.collect::<Result<Vec<_>, _>>()?;
+
+        Ok(entries)
+    }
+
+    pub async fn clear_activity_logs(&self, create_backup: bool) -> Result<String> {
+        let conn = self.lock_connection()?;
+        
+        if create_backup {
+            // Create backup table with timestamp
+            let backup_name = format!("activity_logs_backup_{}", Utc::now().format("%Y%m%d_%H%M%S"));
+            conn.execute(
+                &format!("CREATE TABLE {} AS SELECT * FROM activity_logs", backup_name),
+                [],
+            )?;
+            
+            conn.execute("DELETE FROM activity_logs", [])?;
+            Ok(format!("Activity logs cleared. Backup created: {}", backup_name))
+        } else {
+            let rows_deleted = conn.execute("DELETE FROM activity_logs", [])?;
+            Ok(format!("Activity logs cleared. {} entries removed.", rows_deleted))
+        }
+    }
+
+    pub async fn get_activity_log_stats(&self) -> Result<serde_json::Value> {
+        let conn = self.lock_connection()?;
+        
+        let total_logs: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM activity_logs WHERE deleted = 0",
+            [],
+            |row| row.get(0),
+        )?;
+
+        let logs_by_level = conn.query_row(
+            "SELECT 
+                SUM(CASE WHEN level = 'error' THEN 1 ELSE 0 END) as errors,
+                SUM(CASE WHEN level = 'warning' THEN 1 ELSE 0 END) as warnings,
+                SUM(CASE WHEN level = 'info' THEN 1 ELSE 0 END) as infos
+             FROM activity_logs WHERE deleted = 0",
+            [],
+            |row| {
+                Ok(serde_json::json!({
+                    "errors": row.get::<_, i64>("errors")?,
+                    "warnings": row.get::<_, i64>("warnings")?,
+                    "infos": row.get::<_, i64>("infos")?
+                }))
+            },
+        )?;
+
+        let oldest_log: Option<String> = conn.query_row(
+            "SELECT timestamp FROM activity_logs WHERE deleted = 0 ORDER BY timestamp ASC LIMIT 1",
+            [],
+            |row| row.get(0),
+        ).ok();
+
+        let newest_log: Option<String> = conn.query_row(
+            "SELECT timestamp FROM activity_logs WHERE deleted = 0 ORDER BY timestamp DESC LIMIT 1",
+            [],
+            |row| row.get(0),
+        ).ok();
+
+        Ok(serde_json::json!({
+            "total_logs": total_logs,
+            "logs_by_level": logs_by_level,
+            "oldest_log": oldest_log,
+            "newest_log": newest_log
+        }))
+    }
 }

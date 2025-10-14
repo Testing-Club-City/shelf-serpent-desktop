@@ -1,37 +1,36 @@
 use crate::logging::{ActivityLogger, ActivityLogEntry, LogLevel};
+use crate::database::DatabaseManager;
 use serde_json::Value;
 use std::sync::Arc;
 use tauri::State;
 use tracing::info;
 
-pub type ActivityLoggerState = Arc<ActivityLogger>;
+pub type DatabaseState = Arc<DatabaseManager>;
 
-/// Initialize activity logger
+/// Initialize activity logger (legacy - now using database)
 #[tauri::command]
 pub async fn init_activity_logger(
     log_dir: String,
 ) -> Result<String, String> {
-    let log_path = std::path::PathBuf::from(log_dir);
-    
-    match ActivityLogger::new(log_path) {
-        Ok(_) => {
-            info!("Activity logger initialized successfully");
-            Ok("Activity logger initialized".to_string())
-        },
-        Err(e) => Err(format!("Failed to initialize activity logger: {}", e))
-    }
+    // For backward compatibility, just return success
+    // Activity logging now uses database directly
+    info!("Activity logger initialized (database-based)");
+    Ok("Activity logger initialized (database-based)".to_string())
 }
 
 /// Log an activity entry
 #[tauri::command]
 pub async fn log_activity_entry(
     entry_data: Value,
-    logger: State<'_, ActivityLoggerState>,
+    db: State<'_, DatabaseState>,
 ) -> Result<(), String> {
     let entry: ActivityLogEntry = serde_json::from_value(entry_data)
         .map_err(|e| format!("Failed to parse activity log entry: {}", e))?;
     
-    logger.log(&entry);
+    db.insert_activity_log(&entry)
+        .await
+        .map_err(|e| format!("Failed to insert activity log: {}", e))?;
+    
     Ok(())
 }
 
@@ -46,7 +45,7 @@ pub async fn log_simple_activity(
     resource_type: Option<String>,
     resource_id: Option<String>,
     details: Option<Value>,
-    logger: State<'_, ActivityLoggerState>,
+    db: State<'_, DatabaseState>,
 ) -> Result<(), String> {
     let log_level = match level.to_lowercase().as_str() {
         "trace" => LogLevel::Trace,
@@ -72,7 +71,10 @@ pub async fn log_simple_activity(
         entry = entry.with_details(details);
     }
 
-    logger.log(&entry);
+    db.insert_activity_log(&entry)
+        .await
+        .map_err(|e| format!("Failed to insert activity log: {}", e))?;
+    
     Ok(())
 }
 
@@ -80,18 +82,20 @@ pub async fn log_simple_activity(
 #[tauri::command]
 pub async fn get_activity_logs(
     limit: Option<usize>,
-    logger: State<'_, ActivityLoggerState>,
+    db: State<'_, DatabaseState>,
 ) -> Result<Vec<ActivityLogEntry>, String> {
-    logger.read_logs(limit)
+    db.get_activity_logs(limit)
+        .await
         .map_err(|e| format!("Failed to read activity logs: {}", e))
 }
 
 /// Get activity log statistics
 #[tauri::command]
 pub async fn get_activity_log_stats(
-    logger: State<'_, ActivityLoggerState>,
+    db: State<'_, DatabaseState>,
 ) -> Result<Value, String> {
-    logger.get_log_stats()
+    db.get_activity_log_stats()
+        .await
         .map_err(|e| format!("Failed to get log stats: {}", e))
 }
 
@@ -100,9 +104,10 @@ pub async fn get_activity_log_stats(
 pub async fn export_activity_logs(
     export_path: String,
     limit: Option<usize>,
-    logger: State<'_, ActivityLoggerState>,
+    db: State<'_, DatabaseState>,
 ) -> Result<String, String> {
-    let logs = logger.read_logs(limit)
+    let logs = db.get_activity_logs(limit)
+        .await
         .map_err(|e| format!("Failed to read logs: {}", e))?;
 
     let export_data = serde_json::json!({
@@ -121,26 +126,9 @@ pub async fn export_activity_logs(
 #[tauri::command]
 pub async fn clear_activity_logs(
     create_backup: bool,
-    logger: State<'_, ActivityLoggerState>,
+    db: State<'_, DatabaseState>,
 ) -> Result<String, String> {
-    let log_file_path = &logger.log_file_path;
-    
-    if create_backup {
-        let backup_path = format!("{}.backup.{}", 
-            log_file_path.display(), 
-            chrono::Utc::now().format("%Y%m%d_%H%M%S")
-        );
-        
-        if log_file_path.exists() {
-            std::fs::copy(log_file_path, &backup_path)
-                .map_err(|e| format!("Failed to create backup: {}", e))?;
-        }
-    }
-
-    if log_file_path.exists() {
-        std::fs::remove_file(log_file_path)
-            .map_err(|e| format!("Failed to clear log file: {}", e))?;
-    }
-
-    Ok("Activity logs cleared successfully".to_string())
+    db.clear_activity_logs(create_backup)
+        .await
+        .map_err(|e| format!("Failed to clear activity logs: {}", e))
 }

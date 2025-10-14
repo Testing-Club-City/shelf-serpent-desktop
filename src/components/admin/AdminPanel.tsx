@@ -11,9 +11,11 @@ import { FineSettings } from './FineSettings';
 import { ClassManagement } from './ClassManagement';
 import { ImprovedSchoolCalendarManagement } from './ImprovedSchoolCalendarManagement';
 import { ProfessionalSystemLogs } from './ProfessionalSystemLogs';
+import { TestLogsDebug } from './TestLogsDebug';
 import { AdminOverview } from './AdminOverview';
 import { UserPresenceManagement } from './UserPresenceManagement';
 import { DatabaseManagement } from './DatabaseManagement';
+import { UserManagement } from './UserManagement';
 // DatabaseImport component removed - functionality moved to migration panels
 import { 
   Users, 
@@ -50,6 +52,7 @@ export const AdminPanel = ({ initialTab = 'overview' }: AdminPanelProps) => {
   useEffect(() => {
     const validTabs = [
       'overview', 
+      'users',
       'librarians', 
       'students', 
       'books', 
@@ -105,10 +108,16 @@ export const AdminPanel = ({ initialTab = 'overview' }: AdminPanelProps) => {
       title: "User Management",
       items: [
         {
-          name: "Librarian Management",
-          icon: <Users className="h-5 w-5" />,
-          component: <LibrarianManagement />,
-          description: "Manage librarian accounts, permissions, and user activities"
+          name: "User Management",
+          icon: <Shield className="h-5 w-5" />,
+          component: <UserManagement />,
+          description: "Manage all system users, roles, and passwords"
+        },
+        {
+          name: "User Management",
+          icon: <Shield className="h-5 w-5" />,
+          component: <UserManagement />,
+          description: "Manage all system users, roles, and passwords"
         },
         {
           name: "User Presence",
@@ -321,19 +330,19 @@ export const AdminPanel = ({ initialTab = 'overview' }: AdminPanelProps) => {
               <CardHeader className="pb-6">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Users className="h-5 w-5 text-blue-600" />
+                    <Shield className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
                     <CardTitle className="text-2xl">User Management</CardTitle>
                     <CardDescription className="text-base">
-                      Manage librarian accounts, permissions, and user activities
+                      Manage all system users, roles, and passwords
                     </CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="p-6">
                 <LazyTabContent tabName="librarians">
-                  <LibrarianManagement />
+                  <UserManagement />
                 </LazyTabContent>
               </CardContent>
             </Card>
@@ -539,6 +548,12 @@ export const AdminPanel = ({ initialTab = 'overview' }: AdminPanelProps) => {
                 </div>
               </CardHeader>
               <CardContent className="p-6">
+                {/* Debug Test Component */}
+                <div className="mb-6">
+                  <TestLogsDebug />
+                </div>
+                
+                {/* Actual Logs Component */}
                 <ProfessionalSystemLogs />
               </CardContent>
             </Card>

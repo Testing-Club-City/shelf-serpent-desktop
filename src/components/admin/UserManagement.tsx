@@ -10,11 +10,39 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { invoke } from '@tauri-apps/api/core';
+
+const EditUserSchema = z.object({
+  first_name: z.string().min(1, 'First name is required'),
+  last_name: z.string().min(1, 'Last name is required'),
+  email: z.string().email('Invalid email address'),
+  role: z.enum(['admin', 'librarian', 'user']),
+  new_password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
+  confirm_password: z.string().optional(),
+}).refine((data) => {
+  if (data.new_password && data.confirm_password) {
+    return data.new_password === data.confirm_password;
+  }
+  return true;
+}, {
+  message: "Passwords don't match",
+  path: ["confirm_password"],
+});
+
+type EditUserFormData = z.infer<typeof EditUserSchema>;
 
 export const UserManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
   const { toast } = useToast();
 
   // Fetch real user data from profiles table
@@ -97,6 +125,70 @@ export const UserManagement: React.FC = () => {
     const diffDays = Math.floor(diffHours / 24);
     if (diffDays === 1) return '1 day ago';
     return `${diffDays} days ago`;
+  };
+
+  const editForm = useForm<EditUserFormData>({
+    resolver: zodResolver(EditUserSchema),
+    defaultValues: {
+      first_name: '',
+      last_name: '',
+      email: '',
+      role: 'user',
+      new_password: '',
+      confirm_password: '',
+    },
+  });
+
+  const handleEditUser = (user: any) => {
+    setSelectedUser(user);
+    editForm.reset({
+      first_name: user.first_name || '',
+      last_name: user.last_name || '',
+      email: user.email || '',
+      role: user.role || 'user',
+      new_password: '',
+      confirm_password: '',
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateUser = async (data: EditUserFormData) => {
+    if (!selectedUser) return;
+
+    try {
+      // Update profile using Tauri backend command (more secure)
+      await invoke('update_user_profile', {
+        userId: selectedUser.id,
+        firstName: data.first_name,
+        lastName: data.last_name,
+        email: data.email,
+        role: data.role,
+      });
+
+      // Update password if provided (using Tauri backend command with service role key)
+      if (data.new_password && data.new_password.trim()) {
+        await invoke('update_user_password', {
+          userId: selectedUser.id,
+          newPassword: data.new_password,
+        });
+      }
+
+      toast({
+        title: 'Success',
+        description: data.new_password ? 'User and password updated successfully' : 'User updated successfully',
+      });
+
+      setIsEditDialogOpen(false);
+      setSelectedUser(null);
+      refetch();
+    } catch (error: any) {
+      console.error('Update error:', error);
+      toast({
+        title: 'Error',
+        description: error || 'Failed to update user',
+        variant: 'destructive',
+      });
+    }
   };
 
   const getInitials = (firstName?: string, lastName?: string) => {
@@ -262,7 +354,7 @@ export const UserManagement: React.FC = () => {
                             <Eye className="w-4 h-4" />
                             View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="flex items-center gap-2">
+                          <DropdownMenuItem className="flex items-center gap-2" onClick={() => handleEditUser(user)}>
                             <Edit className="w-4 h-4" />
                             Edit User
                           </DropdownMenuItem>
@@ -292,6 +384,144 @@ export const UserManagement: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Edit User Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>
+              Update user information, role, and optionally change their password.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(handleUpdateUser)} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="first_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>First Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter first name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="last_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Last Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter last name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={editForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input type="email" autoComplete="username" placeholder="Enter email address" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={editForm.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Role</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a role" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="user">User</SelectItem>
+                        <SelectItem value="librarian">Librarian</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="space-y-4">
+                <div className="border-t pt-4">
+                  <h4 className="text-sm font-medium text-gray-900 mb-3">Change Password (Optional)</h4>
+                  <div className="space-y-3">
+                    <FormField
+                      control={editForm.control}
+                      name="new_password"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>New Password</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="password"
+                              autoComplete="new-password"
+                              placeholder="Enter new password (leave blank to keep current)"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={editForm.control}
+                      name="confirm_password"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Confirm New Password</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="password"
+                              autoComplete="new-password"
+                              placeholder="Confirm new password"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEditDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={editForm.formState.isSubmitting}>
+                  {editForm.formState.isSubmitting ? 'Updating...' : 'Update User'}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

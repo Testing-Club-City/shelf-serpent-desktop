@@ -15,6 +15,9 @@ use rand;
 use std::sync::atomic::{AtomicBool, Ordering};
 use dirs;
 
+// Declare the logging module
+pub mod logging;
+
 // Global sync lock
 static SYNC_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
 
@@ -40,10 +43,12 @@ pub mod fixed_sync_commands;
 pub mod simple_book_search;
 pub mod sync_status;
 pub mod reports;
+pub mod user_management;
 // pub mod test_book_copies;
 
 // pub use test_book_copies::test_book_copies_creation;
 pub use reports::*;
+pub use user_management::{update_user_password, update_user_profile};
 
 // Re-export report commands
 pub use reports::{
@@ -1253,6 +1258,92 @@ pub async fn upsert_group_borrowing(
     // For now, just log the upsert since group borrowings aren't fully implemented
     println!("✅ Group borrowing upserted");
     Ok(())
+}
+
+#[tauri::command]
+pub async fn get_borrowings_by_group_id(
+    group_id: String,
+    state: State<'_, DatabaseState>,
+) -> Result<serde_json::Value, String> {
+    println!("🔍 Getting borrowings for group ID: {}", group_id);
+    
+    let conn = state.get_connection();
+    let conn = conn.lock().map_err(|e| e.to_string())?;
+    
+    let mut stmt = conn
+        .prepare(
+            "SELECT 
+                b.id, b.student_id, b.book_id, b.book_copy_id, b.tracking_code,
+                b.borrowed_date, b.due_date, b.returned_date, b.status, b.fine_amount,
+                b.notes, b.condition_at_issue, b.condition_at_return, b.copy_condition,
+                b.is_lost, b.returned_by, b.return_notes, b.borrower_type, b.group_borrowing_id,
+                b.staff_id, b.created_at, b.updated_at, b.deleted,
+                s.first_name, s.last_name, s.admission_number, s.class_grade,
+                bk.title, bk.author, bk.isbn,
+                bc.legacy_book_id, bc.copy_number, bc.condition as book_copy_condition
+            FROM borrowings b
+            LEFT JOIN students s ON b.student_id = s.id
+            LEFT JOIN books bk ON b.book_id = bk.id
+            LEFT JOIN book_copies bc ON b.book_copy_id = bc.id
+            WHERE b.group_borrowing_id = ? AND b.deleted = 0
+            ORDER BY b.borrowed_date DESC"
+        )
+        .map_err(|e| e.to_string())?;
+    
+    let borrowings = stmt
+        .query_map([group_id], |row| {
+            Ok(serde_json::json!({
+                "id": row.get::<_, String>(0)?,
+                "student_id": row.get::<_, String>(1)?,
+                "book_id": row.get::<_, Option<String>>(2)?,
+                "book_copy_id": row.get::<_, Option<String>>(3)?,
+                "tracking_code": row.get::<_, Option<String>>(4)?,
+                "borrowed_date": row.get::<_, Option<String>>(5)?,
+                "due_date": row.get::<_, Option<String>>(6)?,
+                "returned_date": row.get::<_, Option<String>>(7)?,
+                "status": row.get::<_, String>(8)?,
+                "fine_amount": row.get::<_, Option<f64>>(9)?,
+                "notes": row.get::<_, Option<String>>(10)?,
+                "condition_at_issue": row.get::<_, Option<String>>(11)?,
+                "condition_at_return": row.get::<_, Option<String>>(12)?,
+                "copy_condition": row.get::<_, Option<String>>(13)?,
+                "is_lost": row.get::<_, bool>(14)?,
+                "returned_by": row.get::<_, Option<String>>(15)?,
+                "return_notes": row.get::<_, Option<String>>(16)?,
+                "borrower_type": row.get::<_, String>(17)?,
+                "group_borrowing_id": row.get::<_, Option<String>>(18)?,
+                "staff_id": row.get::<_, Option<String>>(19)?,
+                "created_at": row.get::<_, String>(20)?,
+                "updated_at": row.get::<_, String>(21)?,
+                "deleted": row.get::<_, bool>(22)?,
+                "student": {
+                    "first_name": row.get::<_, Option<String>>(23)?,
+                    "last_name": row.get::<_, Option<String>>(24)?,
+                    "admission_number": row.get::<_, Option<String>>(25)?,
+                    "class_grade": row.get::<_, Option<String>>(26)?
+                },
+                "book": {
+                    "title": row.get::<_, Option<String>>(27)?,
+                    "author": row.get::<_, Option<String>>(28)?,
+                    "isbn": row.get::<_, Option<String>>(29)?
+                },
+                "book_copy": {
+                    "legacy_book_id": row.get::<_, Option<i64>>(30)?,
+                    "copy_number": row.get::<_, Option<i64>>(31)?,
+                    "condition": row.get::<_, Option<String>>(32)?
+                }
+            }))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    
+    println!("✅ Found {} borrowings for group", borrowings.len());
+    
+    Ok(serde_json::json!({
+        "borrowings": borrowings,
+        "count": borrowings.len()
+    }))
 }
 
 // ============================================================================
@@ -3896,42 +3987,8 @@ pub fn center_window(window: tauri::WebviewWindow) -> Result<(), String> {
         .map_err(|e| format!("Failed to center window: {}", e))
 }
 
-#[tauri::command]
-pub async fn init_activity_logger() -> Result<String, String> {
-    Ok("Activity logger initialized".to_string())
-}
-
-#[tauri::command]
-pub async fn log_activity_entry() -> Result<String, String> {
-    Ok("Activity logged".to_string())
-}
-
-#[tauri::command]
-pub async fn log_simple_activity() -> Result<String, String> {
-    Ok("Simple activity logged".to_string())
-}
-
-#[tauri::command]
-pub async fn get_activity_logs() -> Result<serde_json::Value, String> {
-    Ok(serde_json::json!({"logs": []}))
-}
-
-#[tauri::command]
-pub async fn get_activity_log_stats() -> Result<serde_json::Value, String> {
-    Ok(serde_json::json!({"total": 0, "today": 0}))
-}
-
-#[tauri::command]
-pub async fn export_activity_logs() -> Result<String, String> {
-    Ok("Activity logs exported".to_string())
-}
-
-#[tauri::command]
-pub async fn clear_activity_logs() -> Result<String, String> {
-    Ok("Activity logs cleared".to_string())
-}
-
-
+// Logging commands are now in commands/logging.rs module
+// They are imported in main.rs as commands::logging::*
 
 #[tauri::command]
 pub async fn comprehensive_sync_from_supabase() -> Result<Value, String> {

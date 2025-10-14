@@ -199,21 +199,19 @@ export const DirectReturnForm: React.FC<DirectReturnFormProps> = ({
           if (searchResults.book_copies && searchResults.book_copies.length > 0) {
             const bookCopy = searchResults.book_copies[0];
             
-            // If book exists but no active borrowing, it might be already returned or available
+            // If book exists but no active borrowing, don't show error - just don't validate
             setIsValidated(false);
             setExpectedBorrowing(null);
             setVictimBorrowing(null);
             setIsTheftDetected(false);
-            setValidationError(`Book found but not currently borrowed. Status: ${bookCopy.status}`);
+            setValidationError('');
           } else {
-            // Book not found at all
+            // Book not found at all - don't show error, just don't validate
             setIsValidated(false);
             setExpectedBorrowing(null);
             setVictimBorrowing(null);
             setIsTheftDetected(false);
-            if (searchTerm.length >= 3) {
-              setValidationError('Book ID/code not found in the system.');
-            }
+            setValidationError('');
           }
         }
       } catch (error) {

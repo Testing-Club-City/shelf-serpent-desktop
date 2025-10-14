@@ -3,6 +3,7 @@ import { offlineDataService } from '@/services/offlineDataService';
 import { useToast } from '@/hooks/use-toast';
 import { useConnectivity } from '@/hooks/useConnectivity';
 import { supabase } from '@/integrations/supabase/client';
+import { logBorrowing } from '@/lib/activityLogger';
 
 interface GroupBorrowing {
   id: string;
@@ -198,7 +199,21 @@ export const useCreateGroupBorrowingOffline = () => {
       const service = new GroupBorrowingsDataService(connectivity);
       return await service.createGroupBorrowing(groupBorrowingData);
     },
-    onSuccess: () => {
+    onSuccess: async (groupBorrowingId: string, groupBorrowingData: any) => {
+      // Log the activity
+      try {
+        const studentCount = groupBorrowingData.student_ids?.length || 0;
+        const bookTitle = groupBorrowingData.book_title || groupBorrowingData.tracking_code || 'Unknown Book';
+        
+        await logBorrowing.groupIssued(
+          groupBorrowingId,
+          bookTitle,
+          studentCount
+        );
+      } catch (logError) {
+        console.error('Failed to log group borrowing creation:', logError);
+      }
+      
       queryClient.invalidateQueries({ queryKey: ['group-borrowings', 'offline-first'] });
       toast({
         title: "Group borrowing created",
@@ -225,7 +240,23 @@ export const useReturnGroupBorrowingOffline = () => {
       const service = new GroupBorrowingsDataService(connectivity);
       return await service.returnGroupBorrowing(groupBorrowingId, returnData);
     },
-    onSuccess: () => {
+    onSuccess: async (_, variables) => {
+      const { groupBorrowingId, returnData } = variables;
+      
+      // Log the activity
+      try {
+        const studentCount = returnData.student_count || 0;
+        const bookTitle = returnData.book_title || returnData.tracking_code || 'Unknown Book';
+        
+        await logBorrowing.groupReturned(
+          groupBorrowingId,
+          bookTitle,
+          studentCount
+        );
+      } catch (logError) {
+        console.error('Failed to log group borrowing return:', logError);
+      }
+      
       queryClient.invalidateQueries({ queryKey: ['group-borrowings', 'offline-first'] });
       queryClient.invalidateQueries({ queryKey: ['borrowings', 'offline-first'] });
       toast({

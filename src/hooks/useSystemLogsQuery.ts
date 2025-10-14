@@ -28,19 +28,46 @@ export const useSystemLogsQuery = () => {
       
       try {
         // Get activity logs from local database using Tauri command
-        const logsData = await invoke<any[]>('get_activity_logs', {
+        const logsData = await invoke('get_activity_logs', {
           limit: 1000,
         });
 
-        console.log('[useSystemLogsQuery] Received logs:', logsData?.length || 0);
+        console.log('[useSystemLogsQuery] Raw logs data:', logsData);
+        console.log('[useSystemLogsQuery] Type:', typeof logsData);
+        console.log('[useSystemLogsQuery] Is Array:', Array.isArray(logsData));
 
-        if (!logsData || logsData.length === 0) {
+        // Ensure we have an array
+        let logsArray: any[] = [];
+        if (Array.isArray(logsData)) {
+          logsArray = logsData;
+        } else if (logsData && typeof logsData === 'object') {
+          // Check if it's wrapped in an object
+          const data = logsData as any;
+          if (data.logs && Array.isArray(data.logs)) {
+            logsArray = data.logs;
+          } else if (data.data && Array.isArray(data.data)) {
+            logsArray = data.data;
+          } else {
+            console.warn('[useSystemLogsQuery] Unexpected data format, wrapping in array:', logsData);
+            logsArray = [logsData];
+          }
+        } else if (logsData === null || logsData === undefined) {
+          console.log('[useSystemLogsQuery] No logs data returned');
+          return [];
+        } else {
+          console.error('[useSystemLogsQuery] Unexpected data type:', typeof logsData);
+          return [];
+        }
+
+        console.log('[useSystemLogsQuery] Array length:', logsArray.length);
+
+        if (logsArray.length === 0) {
           console.log('[useSystemLogsQuery] No logs found');
           return [];
         }
 
         // Transform local database logs to match the expected format
-        const logsWithUsers: SystemLogWithUser[] = logsData.map((log: any) => {
+        const logsWithUsers: SystemLogWithUser[] = logsArray.map((log: any) => {
           // Parse details if it's a JSON string
           let details = null;
           if (log.details) {

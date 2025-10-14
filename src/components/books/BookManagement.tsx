@@ -14,6 +14,7 @@ import { CategoryManagement } from '../admin/CategoryManagement';
 import { useToast } from '@/hooks/use-toast';
 import { invoke } from '@tauri-apps/api/core';
 import { logBook } from '@/lib/activityLogger';
+import { useProfile } from '@/hooks/useProfile';
 
 // Pagination UI components
 import {
@@ -54,6 +55,7 @@ export const BookManagement = ({ searchTerm, openAddBookForm = false }: BookMana
   const { data: categories } = useCategories();
   // Removed Supabase hooks - using Tauri commands instead
   const { toast } = useToast();
+  const { data: profile } = useProfile();
 
   // State for book code repair
   const [isRepairingCodes, setIsRepairingCodes] = useState(false);
@@ -216,7 +218,7 @@ export const BookManagement = ({ searchTerm, openAddBookForm = false }: BookMana
       const bookId = await invoke('create_book_with_copies', { bookData: data });
       
       // Log the activity
-      await logBook.added(bookId as string, data.title);
+      await logBook.added(bookId as string, data.title, profile?.email);
       
       setIsFormOpen(false);
       toast({
@@ -242,7 +244,7 @@ export const BookManagement = ({ searchTerm, openAddBookForm = false }: BookMana
       await invoke('update_book', { bookId: selectedBook.id, bookData: data });
       
       // Log the activity
-      await logBook.updated(selectedBook.id, data.title, data);
+      await logBook.updated(selectedBook.id, data.title, data, profile?.email);
       
       setIsFormOpen(false);
       setSelectedBook(null);
@@ -272,7 +274,7 @@ export const BookManagement = ({ searchTerm, openAddBookForm = false }: BookMana
       
       // Log the activity
       if (book) {
-        await logBook.deleted(id, book.title);
+        await logBook.deleted(id, book.title, profile?.email);
       }
       
       toast({

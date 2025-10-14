@@ -556,6 +556,32 @@ CREATE TABLE IF NOT EXISTS school_terms (
     deleted INTEGER DEFAULT 0
 );
 
+-- Activity Logs Table
+CREATE TABLE IF NOT EXISTS activity_logs (
+    id TEXT PRIMARY KEY,
+    timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+    level TEXT NOT NULL CHECK (level IN ('trace', 'debug', 'info', 'warn', 'error', 'critical')),
+    category TEXT NOT NULL,
+    action TEXT NOT NULL,
+    resource_type TEXT,
+    resource_id TEXT,
+    user_id TEXT,
+    user_email TEXT,
+    session_id TEXT,
+    ip_address TEXT,
+    user_agent TEXT,
+    details TEXT, -- JSON string
+    duration_ms INTEGER,
+    error_message TEXT,
+    stack_trace TEXT,
+    source_file TEXT,
+    source_line INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    synced INTEGER DEFAULT 0,
+    sync_version INTEGER DEFAULT 1,
+    deleted INTEGER DEFAULT 0
+);
+
 -- Initialize sync state for all tables
 INSERT OR IGNORE INTO sync_state (table_name, last_sync, total_records, synced_records) VALUES
 ('categories', datetime('1970-01-01'), 0, 0),
@@ -571,4 +597,5 @@ INSERT OR IGNORE INTO sync_state (table_name, last_sync, total_records, synced_r
 ('theft_reports', datetime('1970-01-01'), 0, 0),
 ('profiles', datetime('1970-01-01'), 0, 0),
 ('system_settings', datetime('1970-01-01'), 0, 0),
-('school_terms', datetime('1970-01-01'), 0, 0);
+('school_terms', datetime('1970-01-01'), 0, 0),
+('activity_logs', datetime('1970-01-01'), 0, 0);

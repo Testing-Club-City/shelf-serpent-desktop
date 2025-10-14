@@ -34,6 +34,15 @@ pub mod sync_lock;
 use commands::*;
 use commands::books::search_book_copy_by_legacy_id;
 use commands::fixed_sync_commands::{sync_borrowings_fixed, sync_group_borrowings_fixed, sync_all_borrowings_fixed};
+use commands::logging::{
+    init_activity_logger,
+    log_activity_entry, 
+    log_simple_activity,
+    get_activity_logs,
+    get_activity_log_stats,
+    export_activity_logs,
+    clear_activity_logs
+};
 use database::DatabaseManager;
 // use auth::AuthManager;
 use sync::SupabaseConfig;
@@ -352,6 +361,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             update_group_borrowing,
             return_group_borrowing,
             upsert_group_borrowing,
+            get_borrowings_by_group_id,
             
             // Professional Bidirectional Sync Commands
             get_professional_sync_status,
@@ -488,6 +498,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             init_activity_logger,
             log_activity_entry,
             log_simple_activity,
+            
+            // User management commands
+            update_user_password,
+            update_user_profile,
             get_activity_logs,
             get_activity_log_stats,
             export_activity_logs,

@@ -97,6 +97,7 @@ export const BookReturnForm = ({ initialBorrowing, onSubmit, onCancel }: BookRet
   const [overdueFine, setOverdueFine] = useState(10);
   const [isFoundLostBook, setIsFoundLostBook] = useState(false);
   const [theftFineAmount, setTheftFineAmount] = useState(800);
+  const [dismissedUnauthorizedCodes, setDismissedUnauthorizedCodes] = useState<Set<string>>(new Set());
 
   // Initialize form
   const form = useForm<any>({
@@ -196,6 +197,13 @@ export const BookReturnForm = ({ initialBorrowing, onSubmit, onCancel }: BookRet
       }
       
       if (!result.is_borrowed) {
+        // Check if user already dismissed this code
+        if (dismissedUnauthorizedCodes.has(inputCode)) {
+          // User already clicked cancel for this code - don't show popup again
+          setIsVerifying(false);
+          return;
+        }
+        
         // Book exists but wasn't issued - show popup for unauthorized book fine
         const shouldFine = window.confirm(
           `⚠️ UNAUTHORIZED BOOK DETECTED\n\n` +
@@ -252,7 +260,11 @@ export const BookReturnForm = ({ initialBorrowing, onSubmit, onCancel }: BookRet
           setSelectedBorrowing(mockBorrowing);
           updatePageState('error', `⚠️ UNAUTHORIZED: Book was never issued - Fine applied`);
         } else {
-          updatePageState('error', `Book ID ${inputCode} is not currently borrowed`);
+          // User cancelled - add to dismissed set and clear the input
+          setDismissedUnauthorizedCodes(prev => new Set([...prev, inputCode]));
+          form.setValue('returned_tracking_code', '');
+          setLastVerifiedCode('');
+          updatePageState('idle', 'Scan a book to begin return process');
           setSelectedBorrowing(null);
         }
         setIsVerifying(false);
@@ -263,7 +275,123 @@ export const BookReturnForm = ({ initialBorrowing, onSubmit, onCancel }: BookRet
       console.log('📊 Borrowing data received:', borrowingData);
       console.log('📊 Student data in borrowing:', borrowingData?.student);
       
-      // THEFT DETECTION: Check if different student is returning
+      // GROUP BORROWING DETECTION AND VALIDATION
+      if (borrowingData.group_borrowing_id || isGroupBorrowing(borrowingData)) {
+        console.log('👥 GROUP BORROWING DETECTED - Validating group membership');
+        
+        try {
+          // Fetch all borrowings for this group
+          const groupBorrowingsResult = await invoke('get_borrowings_by_group_id', {
+            groupId: borrowingData.group_borrowing_id || getGroupInfo(borrowingData)?.groupId
+          });
+          
+          const groupBorrowings = groupBorrowingsResult.borrowings || [];
+          console.log('👥 Group borrowings found:', groupBorrowings.length);
+          
+          // Check if this specific book belongs to this group
+          const bookInGroup = groupBorrowings.some((gb: any) => 
+            gb.tracking_code === inputCode || gb.book_copy_id === result.book_copy_id
+          );
+          
+          if (!bookInGroup) {
+            // Book doesn't belong to this group - potential theft
+            updatePageState('error', `⚠️ INVALID GROUP RETURN: This book does not belong to the group borrowing`);
+            setIsTheft(true);
+            setTheftDetails({
+              groupTheft: true,
+              bookCode: inputCode,
+              expectedGroupId: borrowingData.group_borrowing_id || getGroupInfo(borrowingData)?.groupId,
+              reason: 'Book does not belong to the specified group borrowing'
+            });
+            setTheftFineAmount(500);
+            
+            // Create borrowing object for display
+            const borrowingObj = {
+              id: borrowingData.id,
+              student_id: borrowingData.student_id,
+              book_id: 'unknown',
+              book_copy_id: 'unknown',
+              borrowed_date: borrowingData.borrowed_date,
+              due_date: borrowingData.due_date,
+              returned_date: null,
+              status: borrowingData.status,
+              fine_amount: null,
+              notes: borrowingData.notes,
+              condition_at_issue: 'unknown',
+              condition_at_return: null,
+              copy_condition: null,
+              is_lost: false,
+              returned_by: null,
+              return_notes: null,
+              borrower_type: 'student',
+              group_borrowing_id: borrowingData.group_borrowing_id,
+              staff_id: null,
+              created_at: getSafeISOString(),
+              updated_at: getSafeISOString(),
+              deleted: false,
+              tracking_code: inputCode,
+              students: borrowingData.student,
+              books: { title: result.title, author: result.author },
+              book_copies: { legacy_book_id: result.legacy_book_id }
+            } as any;
+            setSelectedBorrowing(borrowingObj);
+            setIsVerifying(false);
+            return;
+          }
+          
+          // Valid group borrowing - set up group return
+          const groupInfo = getGroupInfo(borrowingData);
+          setIsGroupReturn(true);
+          setGroupInfo(groupInfo);
+          setGroupBorrowings(groupBorrowings);
+          
+          // Create borrowing object for group return
+          const borrowingObj = {
+            id: borrowingData.id,
+            student_id: borrowingData.student_id,
+            book_id: 'unknown',
+            book_copy_id: 'unknown',
+            borrowed_date: borrowingData.borrowed_date,
+            due_date: borrowingData.due_date,
+            returned_date: null,
+            status: borrowingData.status,
+            fine_amount: null,
+            notes: borrowingData.notes,
+            condition_at_issue: 'unknown',
+            condition_at_return: null,
+            copy_condition: null,
+            is_lost: false,
+            returned_by: null,
+            return_notes: null,
+            borrower_type: 'student',
+            group_borrowing_id: borrowingData.group_borrowing_id,
+            staff_id: null,
+            created_at: getSafeISOString(),
+            updated_at: getSafeISOString(),
+            deleted: false,
+            tracking_code: inputCode,
+            students: borrowingData.student,
+            books: { title: result.title, author: result.author },
+            book_copies: { legacy_book_id: result.legacy_book_id }
+          } as any;
+          
+          setSelectedBorrowing(borrowingObj);
+          setIsTheft(false);
+          setTheftDetails(null);
+          updatePageState('success', `✅ Group Return Verified: ${result.title} - Group of ${groupInfo?.studentCount || 'multiple'} students`);
+          setIsVerifying(false);
+          return;
+          
+        } catch (error) {
+          console.error('❌ Error validating group borrowing:', error);
+          updatePageState('error', 'Error validating group borrowing');
+          setSelectedBorrowing(null);
+          setIsVerifying(false);
+          return;
+        }
+      }
+      
+      // INDIVIDUAL BORROWING THEFT DETECTION: Check if different student is returning
       if (initialBorrowing && initialBorrowing.student_id !== borrowingData.student_id) {
         console.log('🚨 THEFT DETECTED: Different students!');
         setIsTheft(true);
