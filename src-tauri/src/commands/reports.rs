@@ -263,6 +263,8 @@ pub async fn get_staff_borrowing_trends(
     end_date: Option<String>,
     state: State<'_, DatabaseState>,
 ) -> Result<Value, String> {
+    println!("📊 get_staff_borrowing_trends called - start_date: {:?}, end_date: {:?}", 
+        start_date, end_date);
     let result = {
         let conn = state.get_connection().lock().map_err(|e| format!("Database lock error: {}", e))?;
         
@@ -278,12 +280,11 @@ pub async fn get_staff_borrowing_trends(
         WHERE b.borrower_type = 'staff' 
         AND (b.deleted = 0 OR b.deleted IS NULL)".to_string();
         
-        // Add date filtering if provided, otherwise use default 90 days
+        // Add date filtering if provided, otherwise show all data
         if let (Some(start), Some(end)) = (&start_date, &end_date) {
             query.push_str(&format!(" AND b.borrowed_date >= '{}' AND b.borrowed_date <= '{}'", start, end));
-        } else {
-            query.push_str(" AND b.borrowed_date >= date('now', '-90 days')");
         }
+        // No default date filter - show all historical data
         
         query.push_str(" GROUP BY DATE(b.borrowed_date) ORDER BY borrow_date DESC");
         
@@ -304,6 +305,8 @@ pub async fn get_staff_borrowing_trends(
             results.push(row.map_err(|e| format!("Row processing error: {}", e))?);
         }
         
+        println!("📊 get_staff_borrowing_trends returning {} records", results.len());
+        
         json!({
             "success": true,
             "data": results,
@@ -320,6 +323,8 @@ pub async fn get_staff_most_borrowed_books(
     end_date: Option<String>,
     state: State<'_, DatabaseState>,
 ) -> Result<Value, String> {
+    println!("📊 get_staff_most_borrowed_books called - start_date: {:?}, end_date: {:?}", 
+        start_date, end_date);
     let result = {
         let conn = state.get_connection().lock().map_err(|e| format!("Database lock error: {}", e))?;
         
@@ -331,7 +336,7 @@ pub async fn get_staff_most_borrowed_books(
             COUNT(b.id) as borrow_count,
             COUNT(DISTINCT b.staff_id) as unique_staff_borrowers,
             MAX(b.borrowed_date) as last_borrowed,
-            GROUP_CONCAT(DISTINCT st.first_name || ' ' || st.last_name, ', ') as frequent_borrowers
+            GROUP_CONCAT(DISTINCT st.staff_id) as frequent_borrower_ids
         FROM borrowings b
         LEFT JOIN books bk ON b.book_id = bk.id AND (bk.deleted = 0 OR bk.deleted IS NULL)
         LEFT JOIN book_copies bc ON b.book_copy_id = bc.id AND (bc.deleted = 0 OR bc.deleted IS NULL)
@@ -344,7 +349,7 @@ pub async fn get_staff_most_borrowed_books(
             query.push_str(&format!(" AND b.borrowed_date >= '{}' AND b.borrowed_date <= '{}'", start, end));
         }
         
-        query.push_str(" GROUP BY COALESCE(bk.id, bc.book_id), book_title, book_author, isbn, publisher HAVING borrow_count > 0 ORDER BY borrow_count DESC, last_borrowed DESC LIMIT 50");
+        query.push_str(" GROUP BY COALESCE(bk.id, bc.book_id), COALESCE(bk.title, bc.title, 'Unknown Book'), COALESCE(bk.author, bc.author, 'Unknown Author'), COALESCE(bk.isbn, bc.isbn), COALESCE(bk.publisher, bc.publisher) HAVING borrow_count > 0 ORDER BY borrow_count DESC, last_borrowed DESC LIMIT 50");
         
         let mut stmt = conn.prepare(&query).map_err(|e| format!("Query prepare error: {}", e))?;
         
@@ -357,7 +362,7 @@ pub async fn get_staff_most_borrowed_books(
                 "borrow_count": row.get::<_, i32>(4)?,
                 "unique_staff_borrowers": row.get::<_, i32>(5)?,
                 "last_borrowed": row.get::<_, Option<String>>(6)?,
-                "frequent_borrowers": row.get::<_, Option<String>>(7)?
+                "frequent_borrower_ids": row.get::<_, Option<String>>(7)?
             }))
         }).map_err(|e| format!("Query execution error: {}", e))?;
         
@@ -365,6 +370,8 @@ pub async fn get_staff_most_borrowed_books(
         for row in rows {
             results.push(row.map_err(|e| format!("Row processing error: {}", e))?);
         }
+        
+        println!("📊 get_staff_most_borrowed_books returning {} records", results.len());
         
         json!({
             "success": true,
@@ -383,8 +390,15 @@ pub async fn get_staff_borrowing_history(
     end_date: Option<String>,
     state: State<'_, DatabaseState>,
 ) -> Result<Value, String> {
+    println!("📊 get_staff_borrowing_history called - staff_id: {:?}, start_date: {:?}, end_date: {:?}", 
+        staff_id, start_date, end_date);
     let result = {
-        let conn = state.get_connection().lock().map_err(|e| format!("Database lock error: {}", e))?;
+        println!("🔄 Attempting to get database connection...");
+        let conn = state.get_connection().lock().map_err(|e| {
+            println!("❌ Database lock error: {}", e);
+            format!("Database lock error: {}", e)
+        })?;
+        println!("✅ Database connection acquired");
         
         let mut query = if staff_id.is_some() {
             "SELECT 
@@ -454,13 +468,18 @@ pub async fn get_staff_borrowing_history(
             query.push_str(&format!(" AND b.borrowed_date >= '{}' AND b.borrowed_date <= '{}'", start, end));
         }
         
+        query.push_str(" ORDER BY b.borrowed_date DESC");
+        
         if staff_id.is_none() {
             query.push_str(" LIMIT 1000");
         }
         
-        query.push_str(" ORDER BY b.borrowed_date DESC");
-        
-        let mut stmt = conn.prepare(&query).map_err(|e| format!("Query prepare error: {}", e))?;
+        println!("🔍 Preparing query: {}", query);
+        let mut stmt = conn.prepare(&query).map_err(|e| {
+            println!("❌ Query prepare error: {}", e);
+            format!("Query prepare error: {}", e)
+        })?;
+        println!("✅ Query prepared successfully");
         
         let row_mapper = |row: &rusqlite::Row| -> Result<serde_json::Value, rusqlite::Error> {
             Ok(json!({
@@ -485,16 +504,32 @@ pub async fn get_staff_borrowing_history(
             }))
         };
 
+        println!("🔄 Executing query with staff_id: {:?}", staff_id);
         let rows = if let Some(id) = staff_id {
-            stmt.query_map([id], row_mapper).map_err(|e| format!("Query execution error: {}", e))?
+            stmt.query_map([id], row_mapper).map_err(|e| {
+                println!("❌ Query execution error (with staff_id): {}", e);
+                format!("Query execution error: {}", e)
+            })?
         } else {
-            stmt.query_map([], row_mapper).map_err(|e| format!("Query execution error: {}", e))?
+            stmt.query_map([], row_mapper).map_err(|e| {
+                println!("❌ Query execution error (no staff_id): {}", e);
+                format!("Query execution error: {}", e)
+            })?
         };
+        println!("✅ Query executed, processing rows...");
         
         let mut results = Vec::new();
+        let mut row_count = 0;
         for row in rows {
-            results.push(row.map_err(|e| format!("Row processing error: {}", e))?);
+            row_count += 1;
+            results.push(row.map_err(|e| {
+                println!("❌ Row processing error at row {}: {}", row_count, e);
+                format!("Row processing error: {}", e)
+            })?);
         }
+        
+        println!("✅ Processed {} rows successfully", row_count);
+        println!("📊 get_staff_borrowing_history returning {} records", results.len());
         
         json!({
             "success": true,

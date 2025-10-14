@@ -646,16 +646,38 @@ async fn process_book_copy_record(
     let created_at = record["created_at"].as_str().unwrap_or_default();
     let updated_at = record["updated_at"].as_str().unwrap_or_default();
     
-    // Look up book details
-    let book_details = books_map.get(book_id);
-    
-    if book_details.is_none() {
-        println!("⚠️ Warning: Book ID {} not found in books map for copy {}", book_id, id);
-        // Skip this record or use fallback - you can choose the strategy
-        return Ok(None);
-    }
-    
-    let book = book_details.unwrap();
+    // Look up book details or use record fields if book_id is empty
+    let (isbn, title, author, publisher, publication_year) = if book_id.is_empty() {
+        // Use fields from the record itself
+        (
+            record["isbn"].as_str().unwrap_or_default().to_string(),
+            record["title"].as_str().unwrap_or("Unknown Title").to_string(),
+            record["author"].as_str().unwrap_or("Unknown Author").to_string(),
+            record["publisher"].as_str().unwrap_or_default().to_string(),
+            record["publication_year"].as_i64().unwrap_or(2024) as i32,
+        )
+    } else {
+        match books_map.get(book_id) {
+            Some(book) => (
+                book.isbn.clone(),
+                book.title.clone(),
+                book.author.clone(),
+                book.publisher.clone(),
+                book.publication_year,
+            ),
+            None => {
+                println!("⚠️ Warning: Book ID {} not found in books map for copy {}", book_id, id);
+                // Use record fields as fallback
+                (
+                    record["isbn"].as_str().unwrap_or_default().to_string(),
+                    record["title"].as_str().unwrap_or("Unknown Title").to_string(),
+                    record["author"].as_str().unwrap_or("Unknown Author").to_string(),
+                    record["publisher"].as_str().unwrap_or_default().to_string(),
+                    record["publication_year"].as_i64().unwrap_or(2024) as i32,
+                )
+            }
+        }
+    };
     
     // Map status values (Supabase → SQLite)
     let local_status = match status {
@@ -680,33 +702,38 @@ async fn process_book_copy_record(
     // Use INSERT OR REPLACE with CORRECTED field mapping
     let upsert_query = r#"
         INSERT OR REPLACE INTO book_copies (
-            id, isbn, title, author, publisher, publication_year,
-            copy_identifier, acquisition_date, condition, status,
-            location, department_id, current_borrower_id, borrowed_at,
-            due_date, legacy_book_id, created_at, updated_at,
-            synced, sync_version, deleted
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 0)
+            id, book_id, isbn, title, author, publisher, publication_year,
+            copy_identifier, copy_number, book_code, tracking_code, notes,
+            acquisition_date, condition, status, location, department_id,
+            current_borrower_id, borrowed_at, due_date, legacy_book_id,
+            created_at, updated_at, synced, sync_version, deleted
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 0)
     "#;
     
     match sqlx::query(upsert_query)
         .bind(id)
-        .bind(&book.isbn)                    // ✅ FIXED: Use book's ISBN from lookup
-        .bind(&book.title)                   // ✅ FIXED: Use book's title from lookup
-        .bind(&book.author)                  // ✅ FIXED: Use book's author from lookup
-        .bind(&book.publisher)               // ✅ FIXED: Use book's publisher from lookup
-        .bind(book.publication_year)         // ✅ FIXED: Use book's year from lookup
-        .bind(tracking_code)                 // ✅ CORRECT: tracking_code → copy_identifier
+        .bind(if book_id.is_empty() || books_map.get(book_id).is_none() { None } else { Some(book_id) }) // book_id - set to None if not found
+        .bind(&isbn)
+        .bind(&title)
+        .bind(&author)
+        .bind(&publisher)
+        .bind(publication_year)
+        .bind(tracking_code)                 // copy_identifier
+        .bind(_copy_number)                  // copy_number
+        .bind(_book_code)                    // book_code
+        .bind(tracking_code)                 // tracking_code
+        .bind(_notes)                        // notes
         .bind(chrono::Utc::now().date_naive().to_string()) // acquisition_date
-        .bind(local_condition)               // ✅ FIXED: Properly mapped condition
-        .bind(local_status)                  // ✅ FIXED: Properly mapped status
-        .bind("Main Library")                // Default location
-        .bind(1)                            // Default department_id
+        .bind(local_condition)
+        .bind(local_status)
+        .bind("Main Library")                // location
+        .bind(1)                            // department_id
         .bind(None::<String>)               // current_borrower_id
         .bind(None::<String>)               // borrowed_at
         .bind(None::<String>)               // due_date
-        .bind(legacy_book_id)               // ✅ CORRECT: Preserve legacy_book_id
-        .bind(created_at)                   // ✅ CORRECT: Preserve created_at
-        .bind(updated_at)                   // ✅ CORRECT: Preserve updated_at
+        .bind(legacy_book_id)
+        .bind(created_at)
+        .bind(updated_at)
         .execute(&mut **tx)
         .await 
     {

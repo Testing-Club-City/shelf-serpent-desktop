@@ -20,8 +20,10 @@ export const StaffDetails: React.FC<StaffDetailsProps> = ({ staff, onBack }) => 
     queryKey: ['staff-borrowings-local', staff.id],
     queryFn: async () => {
       try {
+        console.log('Fetching borrowings for staff ID:', staff.id);
         // Use Tauri command to get staff borrowings from local database
         const borrowings = await invoke('get_borrowings_by_staff', { staffId: staff.id });
+        console.log('Borrowings response:', borrowings);
         return borrowings;
       } catch (error) {
         console.error('Failed to get staff borrowings:', error);

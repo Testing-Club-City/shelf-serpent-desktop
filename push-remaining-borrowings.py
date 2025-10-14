@@ -3,7 +3,7 @@ import sqlite3
 import asyncio
 import httpx
 
-LOCAL_DB = r"C:\Users\Denis Kariuki\AppData\Roaming\library-management-system\library.db"
+LOCAL_DB = r"C:\Users\kariu\AppData\Roaming\library-management-system\library.db"
 SUPABASE_URL = "https://ddlzenlqkofefdwdefzm.supabase.co"
 SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRkbHplbmxxa29mZWZkd2RlZnptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5MzEwNDUsImV4cCI6MjA2NDUwNzA0NX0.wyIuCalCMVs5zUPExw02QDYDrQSCCEzZerYBA_hfosU"
 

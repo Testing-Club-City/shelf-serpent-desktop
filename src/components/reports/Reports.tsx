@@ -259,23 +259,50 @@ export const Reports = () => {
     staleTime: 2 * 60 * 1000,
   });
 
-  const { data: reportStaffMostBorrowed } = useQuery({
+  const { data: reportStaffMostBorrowed, error: staffMostBorrowedError } = useQuery({
     queryKey: ['staff-most-borrowed-books'],
     queryFn: async () => {
+      console.log('📚 Fetching staff most borrowed books...');
       const { invoke } = await import('@tauri-apps/api/core');
-      return await invoke('get_staff_most_borrowed_books');
+      try {
+        const result = await invoke('get_staff_most_borrowed_books');
+        console.log('✅ Staff most borrowed books result:', result);
+        return result;
+      } catch (error) {
+        console.error('❌ Staff most borrowed books query error:', error);
+        throw error;
+      }
     },
     staleTime: 2 * 60 * 1000,
+    enabled: selectedReportType === 'staff_most_borrowed',
   });
 
-  const { data: reportStaffBorrowingHistory } = useQuery({
+  const { data: reportStaffBorrowingHistory, error: staffBorrowingError } = useQuery({
     queryKey: ['staff-borrowing-history'],
     queryFn: async () => {
+      console.log('Fetching staff borrowing history report...');
       const { invoke } = await import('@tauri-apps/api/core');
-      return await invoke('get_staff_borrowing_history', { staff_id: null });
+      try {
+        const result = await invoke('get_staff_borrowing_history', { staff_id: null });
+        console.log('Staff borrowing history result:', result);
+        return result;
+      } catch (error) {
+        console.error('Error calling get_staff_borrowing_history:', error);
+        throw error;
+      }
     },
     staleTime: 2 * 60 * 1000,
+    retry: 1,
   });
+
+  // Log any errors with the staff queries
+  if (staffBorrowingError) {
+    console.error('Staff borrowing history query error:', staffBorrowingError);
+  }
+  
+  if (staffMostBorrowedError) {
+    console.error('Staff most borrowed books query error:', staffMostBorrowedError);
+  }
 
   const { data: reportBorrowingStatistics } = useQuery({
     queryKey: ['borrowing-statistics'],
@@ -1473,7 +1500,9 @@ export const Reports = () => {
         break;
       
       case 'staff_borrowing_history':
-        const staffHistoryData = reportStaffBorrowingHistory?.data || [];
+        // Backend returns { success: true, data: [...], total: X }
+        // We need to extract the actual array from the nested data property
+        const staffHistoryData = reportStaffBorrowingHistory?.data?.data || reportStaffBorrowingHistory?.data || [];
         console.log('Staff borrowing history data:', {
           total: staffHistoryData.length,
           sample: staffHistoryData[0],

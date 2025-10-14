@@ -641,6 +641,7 @@ pub async fn get_borrowings_by_staff(
     staff_id: String,
     state: State<'_, DatabaseState>,
 ) -> Result<Vec<Value>, String> {
+    println!("Backend: get_borrowings_by_staff called with staff_id: {}", staff_id);
     // Direct database query to avoid schema cache issues
     let conn = state.get_connection().lock().map_err(|e| format!("Database lock error: {}", e))?;
     
@@ -674,7 +675,7 @@ pub async fn get_borrowings_by_staff(
         borrowings.push(row_result.map_err(|e| format!("Row processing error: {}", e))?);
     }
     
-    println!("📚 Found {} borrowings for staff {}", borrowings.len(), staff_id);
+    println!("Backend: Found {} borrowings for staff {}", borrowings.len(), staff_id);
     Ok(borrowings)
 }
 
