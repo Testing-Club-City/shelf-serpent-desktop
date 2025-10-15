@@ -861,24 +861,24 @@ export const SystemSettings: React.FC = () => {
       </div>
 
       {/* Information Alert */}
-      <Alert className="bg-blue-50 border-blue-200">
-        <Info className="h-4 w-4 text-blue-600" />
-        <AlertDescription className="text-blue-800">
+      <Alert className="bg-slate-50 border-slate-300">
+        <Info className="h-4 w-4 text-slate-700" />
+        <AlertDescription className="text-slate-800">
           <strong>Form/Grade Level Limits:</strong> Set borrowing limits that apply to ALL sections of the same form or grade.
           For example, Form 2A, Form 2B, and Form 2C will all use the same Form 2 limit.
         </AlertDescription>
       </Alert>
 
       {/* Secondary School - Form System */}
-      <Card className="shadow-md border-0 bg-gradient-to-br from-purple-50 to-white">
-        <CardHeader className="pb-4 border-b bg-gradient-to-r from-purple-600 to-purple-700 text-white">
+      <Card className="shadow-sm border border-slate-200 bg-white">
+        <CardHeader className="pb-4 border-b border-slate-200 bg-slate-50">
           <CardTitle className="flex items-center gap-3 text-xl">
-            <div className="p-2 bg-white/20 rounded-lg">
-              <GraduationCap className="w-6 h-6" />
+            <div className="p-2 bg-slate-100 rounded-lg">
+              <GraduationCap className="w-6 h-6 text-slate-700" />
             </div>
             <div>
-              <div>Secondary School (Form System)</div>
-              <p className="text-sm font-normal text-purple-100 mt-1">
+              <div className="text-slate-900">Secondary School (Form System)</div>
+              <p className="text-sm font-normal text-slate-600 mt-1">
                 Configure maximum books per student for Form 1-4 (applies to all sections)
               </p>
             </div>
@@ -887,24 +887,24 @@ export const SystemSettings: React.FC = () => {
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { key: 'form1' as const, label: 'Form 1', color: 'blue', recommended: 1 },
-              { key: 'form2' as const, label: 'Form 2', color: 'green', recommended: 1 },
-              { key: 'form3' as const, label: 'Form 3', color: 'yellow', recommended: 2 },
-              { key: 'form4' as const, label: 'Form 4', color: 'red', recommended: 3 }
-            ].map(({ key, label, color, recommended }) => (
-              <div key={key} className={`p-5 rounded-xl border-2 border-${color}-200 bg-${color}-50/50 hover:shadow-lg transition-all duration-200`}>
+              { key: 'form1' as const, label: 'Form 1', recommended: 1 },
+              { key: 'form2' as const, label: 'Form 2', recommended: 1 },
+              { key: 'form3' as const, label: 'Form 3', recommended: 2 },
+              { key: 'form4' as const, label: 'Form 4', recommended: 3 }
+            ].map(({ key, label, recommended }) => (
+              <div key={key} className="p-5 rounded-lg border-2 border-slate-200 bg-slate-50 hover:border-slate-300 hover:shadow-md transition-all duration-200">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor={`limit-${key}`} className="text-base font-semibold text-gray-800">
+                    <Label htmlFor={`limit-${key}`} className="text-base font-semibold text-slate-800">
                       {label}
                     </Label>
-                    <div className={`px-2 py-1 rounded-full text-xs font-medium bg-${color}-100 text-${color}-700`}>
+                    <div className="px-2 py-1 rounded-full text-xs font-medium bg-slate-200 text-slate-700">
                       All Sections
                     </div>
                   </div>
                   
                   <div className="relative">
-                    <BookOpen className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-${color}-500`} />
+                    <BookOpen className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-500" />
                     <Input
                       id={`limit-${key}`}
                       type="number"
@@ -912,17 +912,17 @@ export const SystemSettings: React.FC = () => {
                       max="10"
                       value={formLimits[key]}
                       onChange={(e) => handleFormLimitChange(key, e.target.value)}
-                      className="pl-10 text-center text-lg font-bold border-2 focus:ring-2 focus:ring-${color}-400"
+                      className="pl-10 text-center text-lg font-bold border-2 border-slate-200 focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                     />
                   </div>
                   
-                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                  <div className="flex items-center gap-2 text-xs text-slate-600">
                     <Users className="w-3 h-3" />
                     <span>Max {formLimits[key]} book{formLimits[key] > 1 ? 's' : ''} per student</span>
                   </div>
                   
                   {formLimits[key] !== recommended && (
-                    <div className="text-xs text-gray-500 italic flex items-center gap-1">
+                    <div className="text-xs text-slate-500 italic flex items-center gap-1">
                       <AlertCircle className="w-3 h-3" />
                       Recommended: {recommended}
                     </div>
@@ -932,8 +932,8 @@ export const SystemSettings: React.FC = () => {
             ))}
           </div>
           
-          <div className="mt-4 p-4 bg-purple-100 rounded-lg border border-purple-200">
-            <div className="flex items-start gap-2 text-sm text-purple-800">
+          <div className="mt-4 p-4 bg-slate-100 rounded-lg border border-slate-200">
+            <div className="flex items-start gap-2 text-sm text-slate-700">
               <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
               <div>
                 <strong>Note:</strong> These limits apply to ALL classes in each form. 
@@ -945,15 +945,15 @@ export const SystemSettings: React.FC = () => {
       </Card>
 
       {/* Primary School / CBC - Grade System */}
-      <Card className="shadow-md border-0 bg-gradient-to-br from-teal-50 to-white">
-        <CardHeader className="pb-4 border-b bg-gradient-to-r from-teal-600 to-teal-700 text-white">
+      <Card className="shadow-sm border border-slate-200 bg-white">
+        <CardHeader className="pb-4 border-b border-slate-200 bg-slate-50">
           <CardTitle className="flex items-center gap-3 text-xl">
-            <div className="p-2 bg-white/20 rounded-lg">
-              <School className="w-6 h-6" />
+            <div className="p-2 bg-slate-100 rounded-lg">
+              <School className="w-6 h-6 text-slate-700" />
             </div>
             <div>
-              <div>Primary School / CBC (Grade System)</div>
-              <p className="text-sm font-normal text-teal-100 mt-1">
+              <div className="text-slate-900">Primary School / CBC (Grade System)</div>
+              <p className="text-sm font-normal text-slate-600 mt-1">
                 Configure maximum books per student for Grade 7-12 (applies to all sections)
               </p>
             </div>
@@ -969,9 +969,9 @@ export const SystemSettings: React.FC = () => {
               { key: 'grade11' as const, label: 'Grade 11' },
               { key: 'grade12' as const, label: 'Grade 12' }
             ].map(({ key, label }) => (
-              <div key={key} className="p-4 rounded-lg border-2 border-teal-200 bg-teal-50/50 hover:shadow-md transition-all duration-200">
+              <div key={key} className="p-4 rounded-lg border-2 border-slate-200 bg-slate-50 hover:border-slate-300 hover:shadow-md transition-all duration-200">
                 <div className="space-y-2">
-                  <Label htmlFor={`limit-${key}`} className="text-sm font-semibold text-gray-800">
+                  <Label htmlFor={`limit-${key}`} className="text-sm font-semibold text-slate-800">
                     {label}
                   </Label>
                   <div className="relative">
@@ -982,10 +982,10 @@ export const SystemSettings: React.FC = () => {
                       max="10"
                       value={gradeLimits[key]}
                       onChange={(e) => handleGradeLimitChange(key, e.target.value)}
-                      className="text-center text-lg font-bold border-2 focus:ring-2 focus:ring-teal-400"
+                      className="text-center text-lg font-bold border-2 border-slate-200 focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                     />
                   </div>
-                  <div className="text-xs text-gray-600 text-center">
+                  <div className="text-xs text-slate-600 text-center">
                     Max {gradeLimits[key]} book{gradeLimits[key] > 1 ? 's' : ''}
                   </div>
                 </div>
@@ -993,8 +993,8 @@ export const SystemSettings: React.FC = () => {
             ))}
           </div>
           
-          <div className="mt-4 p-4 bg-teal-100 rounded-lg border border-teal-200">
-            <div className="flex items-start gap-2 text-sm text-teal-800">
+          <div className="mt-4 p-4 bg-slate-100 rounded-lg border border-slate-200">
+            <div className="flex items-start gap-2 text-sm text-slate-700">
               <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
               <div>
                 <strong>CBC System:</strong> All sections of the same grade share the same borrowing limit.
@@ -1012,13 +1012,13 @@ export const SystemSettings: React.FC = () => {
             setFormLimits({ form1: 1, form2: 1, form3: 2, form4: 3 });
             setGradeLimits({ grade7: 2, grade8: 2, grade9: 2, grade10: 2, grade11: 2, grade12: 2 });
           }}
-          className="border-gray-300"
+          className="border-slate-300 text-slate-700 hover:bg-slate-50"
         >
           Reset to Defaults
         </Button>
         <Button 
           onClick={handleSaveClassLimits} 
-          className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-md"
+          className="bg-slate-700 hover:bg-slate-800 text-white shadow-sm"
           size="lg"
         >
           <Save className="w-5 h-5 mr-2" />
