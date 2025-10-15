@@ -63,12 +63,13 @@ pub async fn check_student_borrowing_limit(
         }
     };
     
-    // Count current active borrowings for the student
+    // Count current active borrowings for the student (excluding group borrowings)
     let current_borrowed: i64 = conn.query_row(
         "SELECT COUNT(*) FROM borrowings 
          WHERE student_id = ?1 
          AND status = 'active' 
-         AND deleted = 0",
+         AND deleted = 0
+         AND (group_borrowing_id IS NULL OR group_borrowing_id = '')",
         [&student_id],
         |row| row.get(0)
     ).unwrap_or(0);
@@ -110,13 +111,14 @@ pub async fn check_staff_borrowing_limit(
     // Staff typically have a higher limit (e.g., 5-10 books)
     let max_books_allowed: i64 = 5; // This could be configurable or stored in staff table
     
-    // Count current active borrowings for the staff member
+    // Count current active borrowings for the staff member (excluding group borrowings)
     let current_borrowed: i64 = conn.query_row(
         "SELECT COUNT(*) FROM borrowings 
          WHERE staff_id = ?1 
          AND borrower_type = 'staff'
          AND status = 'active' 
-         AND deleted = 0",
+         AND deleted = 0
+         AND (group_borrowing_id IS NULL OR group_borrowing_id = '')",
         [&staff_id],
         |row| row.get(0)
     ).unwrap_or(0);
