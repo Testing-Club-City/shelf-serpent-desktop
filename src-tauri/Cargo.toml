@@ -41,6 +41,10 @@ path = "src/minimal_test.rs"
 name = "fix_database_locks"
 path = "../fix_database_locks.rs"
 
+[[bin]]
+name = "migrate-fine-settings-add-active"
+path = "src/bin/migrate_fine_settings_add_active.rs"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [], default-features = false }
 

@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, User, Calendar, AlertCircle, Search, Users, GraduationCap, Plus, Trash2 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { BookOpen, User, Calendar, AlertCircle, Search, Users, GraduationCap, Plus, Trash2, Ban, CheckCircle, Info } from 'lucide-react';
 import { useBooksOffline } from '@/hooks/useBooksOffline';
 import { useBorrowingSettings } from '@/hooks/useBorrowingSettings';
 import { addDays, addMonths, addYears, format } from 'date-fns';
@@ -15,6 +16,16 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { useStudentsOffline } from '@/hooks/useStudentsOffline';
 import { useStaffOffline } from '@/hooks/useStaffOffline';
 import { useConnectivity } from '@/hooks/useConnectivity';
+import { invoke } from '@tauri-apps/api/core';
+
+interface BorrowingLimitCheck {
+  can_borrow: boolean;
+  current_borrowed: number;
+  max_allowed: number;
+  remaining_slots: number;
+  class_name?: string;
+  message: string;
+}
 
 interface BorrowingItem {
   id: string;
@@ -76,6 +87,8 @@ export const NewBorrowingForm: React.FC<NewBorrowingFormProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [selectedBorrower, setSelectedBorrower] = useState<any>(null);
+  const [borrowingLimit, setBorrowingLimit] = useState<BorrowingLimitCheck | null>(null);
+  const [isCheckingLimit, setIsCheckingLimit] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [borrowedDate, setBorrowedDate] = useState(format(getSafeCurrentDate(), 'yyyy-MM-dd'));
   const [dueDate, setDueDate] = useState(calculateDueDate());
@@ -226,6 +239,38 @@ export const NewBorrowingForm: React.FC<NewBorrowingFormProps> = ({
 
     searchBorrowers();
   }, [debouncedSearchQuery, borrowerType, studentsData, staffData]);
+
+  // Check borrowing limits when borrower is selected
+  useEffect(() => {
+    const checkLimit = async () => {
+      if (!selectedBorrower) {
+        setBorrowingLimit(null);
+        return;
+      }
+
+      setIsCheckingLimit(true);
+      try {
+        if (borrowerType === 'student') {
+          const limit = await invoke<BorrowingLimitCheck>('check_student_borrowing_limit', {
+            studentId: selectedBorrower.id
+          });
+          setBorrowingLimit(limit);
+        } else {
+          const limit = await invoke<BorrowingLimitCheck>('check_staff_borrowing_limit', {
+            staffId: selectedBorrower.id
+          });
+          setBorrowingLimit(limit);
+        }
+      } catch (error) {
+        console.error('Error checking borrowing limit:', error);
+        setBorrowingLimit(null);
+      } finally {
+        setIsCheckingLimit(false);
+      }
+    };
+
+    checkLimit();
+  }, [selectedBorrower, borrowerType, borrowingItems.length]); // Re-check when books are added/removed
 
   const validateTrackingCode = async (trackingCode: string) => {
     console.log('🔍 Validating tracking code:', trackingCode);
@@ -435,6 +480,20 @@ export const NewBorrowingForm: React.FC<NewBorrowingFormProps> = ({
       return;
     }
 
+    // Check borrowing limit BEFORE allowing submission
+    if (borrowingLimit && borrowingItems.length > 0) {
+      const totalAfterTransaction = borrowingLimit.current_borrowed + borrowingItems.length;
+      if (totalAfterTransaction > borrowingLimit.max_allowed) {
+        const borrowerName = `${selectedBorrower.first_name} ${selectedBorrower.last_name}`;
+        const limitMessage = borrowerType === 'student' 
+          ? `${borrowerName} will exceed the maximum borrowing limit!\n\nClass: ${borrowingLimit.class_name || 'N/A'}\nMaximum allowed: ${borrowingLimit.max_allowed} book(s)\nCurrently borrowed: ${borrowingLimit.current_borrowed} book(s)\nTrying to add: ${borrowingItems.length} book(s)\nTotal would be: ${totalAfterTransaction} book(s)\n\nPlease reduce the number of books or ask the student to return existing books first.`
+          : `${borrowerName} will exceed the maximum borrowing limit!\n\nMaximum allowed: ${borrowingLimit.max_allowed} book(s)\nCurrently borrowed: ${borrowingLimit.current_borrowed} book(s)\nTrying to add: ${borrowingItems.length} book(s)\nTotal would be: ${totalAfterTransaction} book(s)\n\nPlease reduce the number of books.`;
+        
+        alert(limitMessage);
+        return;
+      }
+    }
+
     // Validate dates
     if (!borrowedDate || !dueDate) {
       alert('Please ensure both issue date and due date are set.');
@@ -621,6 +680,73 @@ export const NewBorrowingForm: React.FC<NewBorrowingFormProps> = ({
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* Borrowing Limit Status */}
+            {selectedBorrower && (
+              <>
+                {isCheckingLimit ? (
+                  <Alert className="bg-blue-50 border-blue-200">
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      <AlertDescription className="text-blue-800">
+                        Checking borrowing limit...
+                      </AlertDescription>
+                    </div>
+                  </Alert>
+                ) : borrowingLimit ? (
+                  <Alert className={
+                    borrowingLimit.can_borrow && borrowingItems.length < (borrowingLimit.remaining_slots + borrowingLimit.current_borrowed)
+                      ? 'bg-green-50 border-green-200' 
+                      : 'bg-red-50 border-red-200'
+                  }>
+                    <div className="flex items-start gap-2">
+                      {borrowingLimit.can_borrow && borrowingItems.length < (borrowingLimit.remaining_slots + borrowingLimit.current_borrowed) ? (
+                        <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                      ) : (
+                        <Ban className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                      )}
+                      <div className="flex-1">
+                        <AlertDescription className={
+                          borrowingLimit.can_borrow && borrowingItems.length < (borrowingLimit.remaining_slots + borrowingLimit.current_borrowed)
+                            ? 'text-green-800' 
+                            : 'text-red-800'
+                        }>
+                          <div className="font-semibold mb-1">
+                            {borrowingLimit.can_borrow && borrowingItems.length < (borrowingLimit.remaining_slots + borrowingLimit.current_borrowed)
+                              ? 'Can Borrow Books' 
+                              : 'Borrowing Limit Reached'}
+                          </div>
+                          <div className="text-sm space-y-1">
+                            {borrowingLimit.class_name && (
+                              <div>Class: <span className="font-medium">{borrowingLimit.class_name}</span></div>
+                            )}
+                            <div>
+                              Currently Borrowed: <span className="font-medium">{borrowingLimit.current_borrowed}</span> book(s)
+                            </div>
+                            <div>
+                              Adding in this transaction: <span className="font-medium">{borrowingItems.length}</span> book(s)
+                            </div>
+                            <div>
+                              Total after transaction: <span className="font-medium">{borrowingLimit.current_borrowed + borrowingItems.length}</span> / <span className="font-medium">{borrowingLimit.max_allowed}</span> book(s)
+                            </div>
+                            {borrowingLimit.can_borrow && (borrowingLimit.remaining_slots - borrowingItems.length > 0) && (
+                              <div className="text-green-700 font-medium mt-2">
+                                Can add {borrowingLimit.remaining_slots - borrowingItems.length} more book(s) in this transaction
+                              </div>
+                            )}
+                            {borrowingItems.length >= (borrowingLimit.remaining_slots + borrowingLimit.current_borrowed) && (
+                              <div className="text-red-700 font-medium mt-2">
+                                ⚠️ Maximum limit reached! Remove books or ask the {borrowerType} to return existing books.
+                              </div>
+                            )}
+                          </div>
+                        </AlertDescription>
+                      </div>
+                    </div>
+                  </Alert>
+                ) : null}
+              </>
             )}
           </div>
         </CardContent>
@@ -853,6 +979,18 @@ export const NewBorrowingForm: React.FC<NewBorrowingFormProps> = ({
             onClick={addBorrowingItem}
             variant="outline"
             size="sm"
+            disabled={
+              !selectedBorrower || 
+              (borrowingLimit && borrowingItems.length >= borrowingLimit.remaining_slots + borrowingLimit.current_borrowed) ||
+              (borrowingLimit && !borrowingLimit.can_borrow && borrowingItems.length >= 1)
+            }
+            title={
+              !selectedBorrower 
+                ? 'Please select a borrower first' 
+                : (borrowingLimit && borrowingItems.length >= borrowingLimit.remaining_slots + borrowingLimit.current_borrowed)
+                  ? `Borrowing limit reached (${borrowingLimit.max_allowed} books maximum)`
+                  : 'Add another book'
+            }
           >
             <Plus className="h-4 w-4 mr-1" />
             Add Book

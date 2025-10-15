@@ -507,6 +507,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             export_activity_logs,
             clear_activity_logs,
             
+            // Graduated students commands - Optimized for 300k+ records
+            get_graduated_students_paginated,
+            get_graduated_student_clearance,
+            get_graduated_students,
+            get_student_clearance_data,
+            
+            // Borrowing limit commands
+            check_student_borrowing_limit,
+            check_staff_borrowing_limit,
+            get_class_borrowing_limit,
+            update_class_limits_by_form_level,
+            get_classes_by_level,
+            
             // Ultra-fast book verification
             verify_book_instant,
             

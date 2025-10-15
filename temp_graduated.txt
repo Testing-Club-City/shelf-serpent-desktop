@@ -1,0 +1,68 @@
+﻿import React, { useState, useMemo, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { GraduationCap, Search, BookOpen, DollarSign, CheckCircle2, AlertCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2 } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@/hooks/use-toast';
+import { usePayFine } from '@/hooks/useFineManagement';
+import { useBookReturn } from '@/hooks/useBorrowings';
+import { formatCurrency } from '@/lib/utils';
+import { invoke } from '@tauri-apps/api/core';
+
+interface GraduatedStudent {
+  id: string;
+  first_name: string;
+  last_name: string;
+  admission_number: string;
+  class_grade?: string;
+  email?: string;
+  phone?: string;
+  status: string;
+  created_at?: string;
+  updated_at?: string;
+  activeBorrowings?: any[];
+  unpaidFines?: any[];
+  isCleared?: boolean;
+  totalFineAmount?: number;
+  activeBorrowingCount?: number;
+  unpaidFineCount?: number;
+}
+
+interface GraduatedStudentResponse {
+  students: GraduatedStudent[];
+  total_count: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+interface ClearanceData {
+  has_active_borrowings: boolean;
+  has_unpaid_fines: boolean;
+  active_borrowing_count: number;
+  unpaid_fine_count: number;
+  total_fine_amount: number;
+}
+
+export const GraduatedStudentsManagement: React.FC = () => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [clearanceFilter, setClearanceFilter] = useState<'all' | 'cleared' | 'not-cleared'>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const payFine = usePayFine();
+  const bookReturn = useBookReturn();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setCurrentPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);

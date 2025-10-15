@@ -82,6 +82,9 @@ impl DatabaseManager {
         // Run supplier column migrations
         Self::run_supplier_column_migrations(&conn)?;
         
+        // Run fine settings activation column migration
+        Self::run_fine_settings_activation_migration(&conn)?;
+        
         Ok(Self {
             connection: Arc::new(Mutex::new(conn)),
         })
@@ -217,6 +220,57 @@ impl DatabaseManager {
         }
         
         info!("✅ Supplier column migrations completed successfully");
+        Ok(())
+    }
+
+    /// Add is_active column to fine_settings table if it doesn't exist
+    fn run_fine_settings_activation_migration(conn: &Connection) -> Result<()> {
+        info!("🔄 Running fine settings activation migration...");
+        
+        // Check if fine_settings table exists
+        let table_exists: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='fine_settings'",
+            [],
+            |row| row.get(0)
+        ).unwrap_or(0);
+        
+        if table_exists == 0 {
+            info!("⚠️  fine_settings table does not exist yet, skipping migration");
+            return Ok(());
+        }
+        
+        // Check if is_active column exists
+        let is_active_exists: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('fine_settings') WHERE name = 'is_active'",
+            [],
+            |row| row.get(0)
+        ).unwrap_or(0);
+        
+        if is_active_exists == 0 {
+            info!("➕ Adding 'is_active' column to fine_settings table...");
+            
+            // Add the is_active column with default value of 1 (active)
+            conn.execute(
+                "ALTER TABLE fine_settings ADD COLUMN is_active INTEGER DEFAULT 1 NOT NULL",
+                []
+            )?;
+            
+            info!("✅ Added 'is_active' column to fine_settings");
+            
+            // Ensure all existing rows have is_active set to 1 (active by default)
+            let updated_rows = conn.execute(
+                "UPDATE fine_settings SET is_active = 1 WHERE is_active IS NULL OR is_active = 0",
+                []
+            )?;
+            
+            if updated_rows > 0 {
+                info!("✅ Set {} existing fine settings to active", updated_rows);
+            }
+        } else {
+            info!("✓ 'is_active' column already exists in fine_settings");
+        }
+        
+        info!("✅ Fine settings activation migration completed successfully");
         Ok(())
     }
 
@@ -622,6 +676,109 @@ impl DatabaseManager {
             })
         })?.collect::<Result<Vec<_>, _>>()?;
 
+        Ok(students)
+    }
+
+    pub async fn get_graduated_students_with_details(&self) -> Result<Vec<serde_json::Value>> {
+        let conn = self.lock_connection()?;
+        
+        // Get graduated students with their borrowings and fines
+        let mut stmt = conn.prepare("
+            SELECT 
+                s.id, s.first_name, s.last_name, s.admission_number, s.class_grade, 
+                s.email, s.phone, s.address, s.created_at, s.updated_at, s.status,
+                c.class_name
+            FROM students s 
+            LEFT JOIN classes c ON s.class_grade = c.class_name 
+            WHERE s.deleted = 0 AND s.status = 'graduated'
+            ORDER BY s.first_name, s.last_name
+        ")?;
+
+        let students_iter = stmt.query_map([], |row| {
+            let id: String = row.get(0)?;
+            let first_name: String = row.get(1)?;
+            let last_name: String = row.get(2)?;
+            let admission_number: Option<String> = row.get(3)?;
+            let class_grade: Option<String> = row.get(4)?;
+            let email: Option<String> = row.get(5)?;
+            let phone: Option<String> = row.get(6)?;
+            let address: Option<String> = row.get(7)?;
+            let created_at: String = row.get(8)?;
+            let updated_at: String = row.get(9)?;
+            let status: Option<String> = row.get(10)?;
+            let class_name: Option<String> = row.get(11)?;
+            
+            Ok(serde_json::json!({
+                "id": id,
+                "first_name": first_name,
+                "last_name": last_name,
+                "admission_number": admission_number,
+                "class_grade": class_grade,
+                "email": email,
+                "phone": phone,
+                "address": address,
+                "created_at": created_at,
+                "updated_at": updated_at,
+                "status": status,
+                "class_name": class_name,
+                "borrowings": [],  // Will be populated below
+                "fines": []         // Will be populated below
+            }))
+        })?;
+
+        let mut students: Vec<serde_json::Value> = students_iter.collect::<Result<Vec<_>, _>>()?;
+        
+        // For each student, get their borrowings and fines
+        for student in &mut students {
+            let student_id = student["id"].as_str().unwrap();
+            
+            // Get borrowings for this student
+            let mut borrowing_stmt = conn.prepare("
+                SELECT 
+                    b.id, b.status, b.due_date, b.is_lost, b.tracking_code,
+                    COALESCE(bk.title, bc.title, 'Unknown Book') as book_title,
+                    COALESCE(bk.author, bc.author, 'Unknown Author') as book_author
+                FROM borrowings b
+                LEFT JOIN books bk ON b.book_id = bk.id AND bk.deleted = 0
+                LEFT JOIN book_copies bc ON b.book_copy_id = bc.id AND bc.deleted = 0
+                WHERE b.student_id = ? AND b.deleted = 0 AND b.status = 'active'
+            ")?;
+            
+            let borrowings: Vec<serde_json::Value> = borrowing_stmt.query_map([student_id], |row| {
+                Ok(serde_json::json!({
+                    "id": row.get::<_, String>(0)?,
+                    "status": row.get::<_, String>(1)?,
+                    "due_date": row.get::<_, Option<String>>(2)?,
+                    "is_lost": row.get::<_, Option<i32>>(3)?.map(|v| v != 0).unwrap_or(false),
+                    "tracking_code": row.get::<_, Option<String>>(4)?,
+                    "books": {
+                        "title": row.get::<_, String>(5)?,
+                        "author": row.get::<_, String>(6)?
+                    }
+                }))
+            })?.collect::<Result<Vec<_>, _>>()?;
+            
+            // Get fines for this student
+            let mut fine_stmt = conn.prepare("
+                SELECT id, amount, status, fine_type, description
+                FROM fines 
+                WHERE student_id = ? AND deleted = 0
+            ")?;
+            
+            let fines: Vec<serde_json::Value> = fine_stmt.query_map([student_id], |row| {
+                Ok(serde_json::json!({
+                    "id": row.get::<_, String>(0)?,
+                    "amount": row.get::<_, f64>(1)?,
+                    "status": row.get::<_, String>(2)?,
+                    "fine_type": row.get::<_, String>(3)?,
+                    "description": row.get::<_, Option<String>>(4)?
+                }))
+            })?.collect::<Result<Vec<_>, _>>()?;
+            
+            student["borrowings"] = serde_json::Value::Array(borrowings);
+            student["fines"] = serde_json::Value::Array(fines);
+        }
+        
         Ok(students)
     }
 
@@ -1130,11 +1287,11 @@ impl DatabaseManager {
         if has_book_id_column {
             conn.execute(
                 "INSERT OR IGNORE INTO book_copies (
-                    id, isbn, title, author, publisher, publication_year,
+                    id, book_id, isbn, title, author, publisher, publication_year,
                     copy_identifier, acquisition_date, condition, status,
                     location, department_id, current_borrower_id, borrowed_at,
                     due_date, legacy_book_id, created_at, updated_at, book_id
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, date('now'), ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, date('now'), ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
                 rusqlite::params![
                     book_copy.id.to_string(),
                     isbn,
@@ -1214,10 +1371,10 @@ impl DatabaseManager {
         if has_book_id_column {
             conn.execute(
                 "INSERT INTO book_copies (
-                    id, book_id, isbn, title, author,
+                    id, book_id, isbn, title, author, publisher, publication_year,
                     copy_identifier, condition, status, legacy_book_id,
                     created_at, updated_at, synced, sync_version, deleted
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
                 rusqlite::params![
                     copy_id,
                     book_id,
@@ -1238,10 +1395,10 @@ impl DatabaseManager {
         } else {
             conn.execute(
                 "INSERT INTO book_copies (
-                    id, isbn, title, author,
+                    id, isbn, title, author, publisher, publication_year,
                     copy_identifier, condition, status, legacy_book_id,
                     created_at, updated_at, synced, sync_version, deleted
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
                 rusqlite::params![
                     copy_id,
                     "UNKNOWN", // isbn
@@ -1503,7 +1660,7 @@ impl DatabaseManager {
                 borrowing.staff_id.map(|id| id.to_string()),
             ],
         );
-        
+
         match result {
             Ok(rows_affected) => {
                 println!("✅ Borrowing inserted successfully. Rows affected: {}", rows_affected);
@@ -1560,7 +1717,7 @@ impl DatabaseManager {
              WHERE id = ? AND available_copies + ? >= 0",
             rusqlite::params![change, book_id, change],
         );
-        
+
         match result {
             Ok(rows_affected) => {
                 if rows_affected > 0 {
@@ -1636,7 +1793,7 @@ impl DatabaseManager {
                 borrowing.staff_id.map(|id| id.to_string()),
             ],
         );
-        
+
         match borrowing_result {
             Ok(rows) => println!("✅ Borrowing record inserted successfully. Rows: {}", rows),
             Err(e) => {
@@ -2260,7 +2417,7 @@ impl DatabaseManager {
             ORDER BY title, author
             LIMIT ?
         ")?;
-        
+
         let book_iter = stmt.query_map([
             format!("%{}%", query_lower), format!("%{}%", query_lower),
             format!("%{}%", query_lower), format!("%{}%", query_lower), limit.to_string()
@@ -2276,18 +2433,20 @@ impl DatabaseManager {
                 "created_at": row.get::<_, String>("created_at")?,
                 "type": "book"
             }))
-        })?;
-        books.extend(book_iter.collect::<Result<Vec<_>, _>>()?);
+        })?.collect::<Result<Vec<_>, _>>()?;
+
+        books.extend(book_iter);
         
         // Search book copies (including legacy book ID)
         let mut book_copies = Vec::new();
         let copy_query = if is_numeric {
             // For numeric queries, prioritize legacy_book_id exact match
-            "SELECT CAST(bc.id AS TEXT) as id, bc.legacy_book_id, bc.copy_identifier, bc.condition, bc.status,
-                    COALESCE(b.title, bc.title, 'Unknown Title') as title,
-                    COALESCE(b.author, bc.author, 'Unknown Author') as author,
-                    COALESCE(b.isbn, bc.isbn) as isbn,
-                    bc.created_at
+            "SELECT 
+                CAST(bc.id AS TEXT) as id, bc.legacy_book_id, bc.copy_identifier, bc.condition, bc.status,
+                COALESCE(b.title, bc.title, 'Unknown Title') as title,
+                COALESCE(b.author, bc.author, 'Unknown Author') as author,
+                COALESCE(b.isbn, bc.isbn) as isbn,
+                bc.created_at
              FROM book_copies bc
              LEFT JOIN books b ON bc.isbn = b.isbn AND (b.deleted = 0 OR b.deleted IS NULL)
              WHERE (bc.deleted = 0 OR bc.deleted IS NULL) 
@@ -2299,11 +2458,12 @@ impl DatabaseManager {
              LIMIT ?"
         } else {
             // For text queries, search titles, authors, and identifiers
-            "SELECT CAST(bc.id AS TEXT) as id, bc.legacy_book_id, bc.copy_identifier, bc.condition, bc.status,
-                    COALESCE(b.title, bc.title, 'Unknown Title') as title,
-                    COALESCE(b.author, bc.author, 'Unknown Author') as author,
-                    COALESCE(b.isbn, bc.isbn) as isbn,
-                    bc.created_at
+            "SELECT 
+                CAST(bc.id AS TEXT) as id, bc.legacy_book_id, bc.copy_identifier, bc.condition, bc.status,
+                COALESCE(b.title, bc.title, 'Unknown Title') as title,
+                COALESCE(b.author, bc.author, 'Unknown Author') as author,
+                COALESCE(b.isbn, bc.isbn) as isbn,
+                bc.created_at
              FROM book_copies bc
              LEFT JOIN books b ON bc.isbn = b.isbn AND (b.deleted = 0 OR b.deleted IS NULL)
              WHERE (bc.deleted = 0 OR bc.deleted IS NULL) 
@@ -2336,8 +2496,9 @@ impl DatabaseManager {
                 "created_at": row.get::<_, String>("created_at")?,
                 "type": "book_copy"
             }))
-        })?;
-        book_copies.extend(copy_iter.collect::<Result<Vec<_>, _>>()?);
+        })?.collect::<Result<Vec<_>, _>>()?;
+
+        book_copies.extend(copy_iter);
         
         // Search active borrowings
         let mut borrowings = Vec::new();
@@ -2547,7 +2708,7 @@ impl DatabaseManager {
                 let mut stmt = conn.prepare("
                     SELECT 
                         CAST(id AS TEXT) as id, isbn, title, author, publisher, publication_year,
-                        copy_identifier, condition, status, location, legacy_book_id,
+                        copy_identifier, condition, status, legacy_book_id,
                         created_at, updated_at
                     FROM book_copies 
                     WHERE title = ? AND author = ?
@@ -2648,7 +2809,7 @@ impl DatabaseManager {
                 id, isbn, title, author, publisher, publication_year,
                 copy_identifier, condition, status, legacy_book_id,
                 created_at, updated_at, synced, sync_version, deleted
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
             rusqlite::params![
                 copy_id,
                 book_isbn,
@@ -2901,7 +3062,9 @@ impl DatabaseManager {
                     "first_name": row.get::<_, Option<String>>("first_name")?,
                     "last_name": row.get::<_, Option<String>>("last_name")?,
                     "staff_id": row.get::<_, Option<String>>("staff_identifier")?,
-                    "department": row.get::<_, Option<String>>("department")?
+                    "department": row.get::<_, Option<String>>("department")?,
+                    "position": row.get::<_, Option<String>>("staff_position")?,
+                    "email": row.get::<_, Option<String>>("staff_email")?
                 },
                 "book": {
                     "id": row.get::<_, Option<String>>("book_id")?,
@@ -3238,5 +3401,5 @@ impl DatabaseManager {
             "oldest_log": oldest_log,
             "newest_log": newest_log
         }))
-    }
+}
 }

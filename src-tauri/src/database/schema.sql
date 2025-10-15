@@ -238,6 +238,7 @@ CREATE TABLE IF NOT EXISTS fine_settings (
     fine_type TEXT NOT NULL UNIQUE CHECK (fine_type IN ('overdue', 'damaged', 'lost_book', 'stolen_book', 'theft_victim', 'condition_poor', 'condition_fair', 'condition_excellent', 'condition_good', 'late_return', 'replacement_cost', 'processing_fee')),
     amount REAL DEFAULT 0 NOT NULL,
     description TEXT,
+    is_active INTEGER DEFAULT 1 NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     synced INTEGER DEFAULT 0,

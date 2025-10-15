@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Settings, Save, GraduationCap, School, Currency, Clock, Calendar, Pencil } from 'lucide-react';
+import { Settings, Save, GraduationCap, School, Currency, Clock, Calendar, Pencil, BookOpen, Users, AlertCircle, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useSystemSettings, useUpdateSystemSetting, getSchoolNameFromSettings } from '@/hooks/useSystemSettings';
 import { useClasses } from '@/hooks/useClasses';
@@ -15,9 +15,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { invoke } from '@tauri-apps/api/core';
 
 // Term interface
 interface SchoolTerm {
@@ -582,13 +584,23 @@ export const SystemSettings: React.FC = () => {
   const [enableFines, setEnableFines] = useState(true);
   const [enableAutoFines, setEnableAutoFines] = useState(false);
 
-  // State for class limits - Initialize with proper structure
-  const [classLimits, setClassLimits] = useState<Record<string, number>>({
-    'Form 1': 2,
-    'Form 2': 2,
-    'Form 3': 2,
-    'Form 4': 2
+  // State for class limits - Form-level based limits
+  const [formLimits, setFormLimits] = useState({
+    form1: 1,
+    form2: 1,
+    form3: 2,
+    form4: 3
   });
+  
+  const [gradeLimits, setGradeLimits] = useState({
+    grade7: 2,
+    grade8: 2,
+    grade9: 2,
+    grade10: 2,
+    grade11: 2,
+    grade12: 2
+  });
+  
   const [finePerDay, setFinePerDay] = useState('10');
 
   // Load settings
@@ -617,29 +629,41 @@ export const SystemSettings: React.FC = () => {
       const fineAmount = settings.find(s => s.setting_key === 'fine_per_day')?.setting_value;
       setFinePerDay(String(fineAmount) || '10');
 
-      // Load class limits with proper parsing
-      const classLimitsSetting = settings.find(s => s.setting_key === 'max_books_per_class')?.setting_value;
-      if (classLimitsSetting) {
+      // Load form-level limits
+      const formLimitsSetting = settings.find(s => s.setting_key === 'form_level_limits')?.setting_value;
+      if (formLimitsSetting) {
         try {
-          let parsedLimits;
-          if (typeof classLimitsSetting === 'string') {
-            parsedLimits = JSON.parse(classLimitsSetting);
-          } else {
-            parsedLimits = classLimitsSetting;
-          }
-          
-          // Ensure we have a valid object with proper structure
-          if (parsedLimits && typeof parsedLimits === 'object') {
-            setClassLimits({
-              'Form 1': Number(parsedLimits['Form 1']) || 2,
-              'Form 2': Number(parsedLimits['Form 2']) || 2,
-              'Form 3': Number(parsedLimits['Form 3']) || 2,
-              'Form 4': Number(parsedLimits['Form 4']) || 2
+          const parsed = typeof formLimitsSetting === 'string' ? JSON.parse(formLimitsSetting) : formLimitsSetting;
+          if (parsed && typeof parsed === 'object') {
+            setFormLimits({
+              form1: Number(parsed.form1) || 1,
+              form2: Number(parsed.form2) || 1,
+              form3: Number(parsed.form3) || 2,
+              form4: Number(parsed.form4) || 3
             });
           }
         } catch (e) {
-          console.error('Error parsing class limits:', e);
-          // Keep default values on error
+          console.error('Error parsing form limits:', e);
+        }
+      }
+      
+      // Load grade-level limits
+      const gradeLimitsSetting = settings.find(s => s.setting_key === 'grade_level_limits')?.setting_value;
+      if (gradeLimitsSetting) {
+        try {
+          const parsed = typeof gradeLimitsSetting === 'string' ? JSON.parse(gradeLimitsSetting) : gradeLimitsSetting;
+          if (parsed && typeof parsed === 'object') {
+            setGradeLimits({
+              grade7: Number(parsed.grade7) || 2,
+              grade8: Number(parsed.grade8) || 2,
+              grade9: Number(parsed.grade9) || 2,
+              grade10: Number(parsed.grade10) || 2,
+              grade11: Number(parsed.grade11) || 2,
+              grade12: Number(parsed.grade12) || 2
+            });
+          }
+        } catch (e) {
+          console.error('Error parsing grade limits:', e);
         }
       }
     }
@@ -729,64 +753,89 @@ export const SystemSettings: React.FC = () => {
 
   const handleSaveClassLimits = async () => {
     try {
-      console.log('Saving class limits:', classLimits);
+      console.log('Saving form limits:', formLimits);
+      console.log('Saving grade limits:', gradeLimits);
       
-      // Validate that all values are valid numbers
-      const hasInvalidValues = Object.entries(classLimits).some(([key, value]) => {
+      // Validate form limits
+      const hasInvalidFormValues = Object.values(formLimits).some(value => {
         const numValue = Number(value);
         return isNaN(numValue) || numValue < 1 || numValue > 10;
       });
       
-      if (hasInvalidValues) {
+      // Validate grade limits
+      const hasInvalidGradeValues = Object.values(gradeLimits).some(value => {
+        const numValue = Number(value);
+        return isNaN(numValue) || numValue < 1 || numValue > 10;
+      });
+      
+      if (hasInvalidFormValues || hasInvalidGradeValues) {
         toast({
           title: 'Validation Error',
-          description: 'All class limits must be numbers between 1 and 10.',
+          description: 'All limits must be numbers between 1 and 10.',
           variant: 'destructive',
         });
         return;
       }
       
-      // Ensure all values are numbers and valid for both forms and grades
-      const validatedLimits = {
-        'Form 1': Math.max(1, Number(classLimits['Form 1']) || 2),
-        'Form 2': Math.max(1, Number(classLimits['Form 2']) || 2),
-        'Form 3': Math.max(1, Number(classLimits['Form 3']) || 2),
-        'Form 4': Math.max(1, Number(classLimits['Form 4']) || 2),
-        'Grade 7': Math.max(1, Number(classLimits['Grade 7']) || 2),
-        'Grade 8': Math.max(1, Number(classLimits['Grade 8']) || 2),
-        'Grade 9': Math.max(1, Number(classLimits['Grade 9']) || 2),
-        'Grade 10': Math.max(1, Number(classLimits['Grade 10']) || 2),
-        'Grade 11': Math.max(1, Number(classLimits['Grade 11']) || 2),
-        'Grade 12': Math.max(1, Number(classLimits['Grade 12']) || 2)
-      };
-      
-      console.log('Validated limits:', validatedLimits);
-      
+      // Save form-level limits
       await updateSetting.mutateAsync({
-        key: 'max_books_per_class',
-        value: validatedLimits, // The hook will handle JSON.stringify
-        description: 'Maximum books allowed per class/form level'
+        key: 'form_level_limits',
+        value: formLimits,
+        description: 'Maximum books allowed per form level (applies to all sections)'
+      });
+      
+      // Save grade-level limits
+      await updateSetting.mutateAsync({
+        key: 'grade_level_limits',
+        value: gradeLimits,
+        description: 'Maximum books allowed per grade level (applies to all sections)'
+      });
+
+      // Now update all classes in the database to use form-level limits
+      await invoke('update_class_limits_by_form_level', { 
+        formLimits: {
+          1: formLimits.form1,
+          2: formLimits.form2,
+          3: formLimits.form3,
+          4: formLimits.form4
+        },
+        gradeLimits: {
+          7: gradeLimits.grade7,
+          8: gradeLimits.grade8,
+          9: gradeLimits.grade9,
+          10: gradeLimits.grade10,
+          11: gradeLimits.grade11,
+          12: gradeLimits.grade12
+        }
       });
 
       toast({
         title: 'Success',
-        description: 'Class limits have been updated successfully.',
+        description: 'Borrowing limits have been updated for all classes successfully.',
       });
     } catch (error) {
       console.error('Error saving class limits:', error);
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to save class limits. Please try again.',
+        description: error instanceof Error ? error.message : 'Failed to save borrowing limits. Please try again.',
         variant: 'destructive',
       });
     }
   };
 
-  const handleClassLimitChange = (formLevel: string, value: string) => {
-    const numValue = Math.max(1, parseInt(value) || 1);
-    setClassLimits(prev => ({
+  const handleFormLimitChange = (formKey: keyof typeof formLimits, value: string) => {
+    const numValue = Math.max(1, Math.min(10, parseInt(value) || 1));
+    setFormLimits(prev => ({
       ...prev,
-      [formLevel]: numValue
+      [formKey]: numValue
+    }));
+  };
+
+  const handleGradeLimitChange = (gradeKey: keyof typeof gradeLimits, value: string) => {
+    const numValue = Math.max(1, Math.min(10, parseInt(value) || 1));
+    setGradeLimits(prev => ({
+      ...prev,
+      [gradeKey]: numValue
     }));
   };
 
@@ -796,219 +845,186 @@ export const SystemSettings: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="general">General Settings</TabsTrigger>
-          <TabsTrigger value="fine-management">Fine Management</TabsTrigger>
-          <TabsTrigger value="class-limits">Class Limits</TabsTrigger>
-          <TabsTrigger value="academic-calendar">Academic Calendar</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="general" className="space-y-6">
-          {/* Institution Information */}
-          <Card className="shadow-sm border-0">
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <School className="w-5 h-5 text-blue-600" />
-                Institution Information
-              </CardTitle>
-              <p className="text-sm text-gray-600">Basic information about your institution</p>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-3">
-                <Label htmlFor="libraryName" className="text-sm font-medium">Institution Name</Label>
-                <Input
-                  id="libraryName"
-                  value={institutionName}
-                  onChange={(e) => {
-                    console.log('Institution name changed to:', e.target.value);
-                    setInstitutionName(e.target.value);
-                  }}
-                  placeholder="Enter your institution name"
-                  className="max-w-md"
-                />
-              </div>
-            </CardContent>
-          </Card>
+      {/* Page Header */}
+      <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg p-6 text-white shadow-lg">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-white/20 rounded-lg">
+            <BookOpen className="w-8 h-8" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">Borrowing Limits Configuration</h1>
+            <p className="text-purple-100 mt-1">
+              Set maximum books allowed per form/grade level (applies to all class sections)
+            </p>
+          </div>
+        </div>
+      </div>
 
-          {/* Borrowing Policies */}
-          <Card className="shadow-sm border-0">
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <Clock className="w-5 h-5 text-green-600" />
-                Borrowing Policies
-              </CardTitle>
-              <p className="text-sm text-gray-600">Configure borrowing rules and limitations</p>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Information Alert */}
+      <Alert className="bg-blue-50 border-blue-200">
+        <Info className="h-4 w-4 text-blue-600" />
+        <AlertDescription className="text-blue-800">
+          <strong>Form/Grade Level Limits:</strong> Set borrowing limits that apply to ALL sections of the same form or grade.
+          For example, Form 2A, Form 2B, and Form 2C will all use the same Form 2 limit.
+        </AlertDescription>
+      </Alert>
+
+      {/* Secondary School - Form System */}
+      <Card className="shadow-md border-0 bg-gradient-to-br from-purple-50 to-white">
+        <CardHeader className="pb-4 border-b bg-gradient-to-r from-purple-600 to-purple-700 text-white">
+          <CardTitle className="flex items-center gap-3 text-xl">
+            <div className="p-2 bg-white/20 rounded-lg">
+              <GraduationCap className="w-6 h-6" />
+            </div>
+            <div>
+              <div>Secondary School (Form System)</div>
+              <p className="text-sm font-normal text-purple-100 mt-1">
+                Configure maximum books per student for Form 1-4 (applies to all sections)
+              </p>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              { key: 'form1' as const, label: 'Form 1', color: 'blue', recommended: 1 },
+              { key: 'form2' as const, label: 'Form 2', color: 'green', recommended: 1 },
+              { key: 'form3' as const, label: 'Form 3', color: 'yellow', recommended: 2 },
+              { key: 'form4' as const, label: 'Form 4', color: 'red', recommended: 3 }
+            ].map(({ key, label, color, recommended }) => (
+              <div key={key} className={`p-5 rounded-xl border-2 border-${color}-200 bg-${color}-50/50 hover:shadow-lg transition-all duration-200`}>
                 <div className="space-y-3">
-                  <Label htmlFor="maxBorrowDays" className="text-sm font-medium">Maximum Borrow Period (Days)</Label>
-                  <Input
-                    id="maxBorrowDays"
-                    type="number"
-                    min="1"
-                    max="90"
-                    value={borrowingPeriod}
-                    onChange={(e) => setBorrowingPeriod(e.target.value)}
-                    className="max-w-32"
-                  />
-                  <p className="text-xs text-gray-500">Standard borrowing period for all books</p>
-                </div>
-
-                <div className="space-y-3">
-                  <Label htmlFor="maxBooksPerStudent" className="text-sm font-medium">Max Books Per Student</Label>
-                  <Input
-                    id="maxBooksPerStudent"
-                    type="number"
-                    min="1"
-                    max="20"
-                    value={maxBooksPerStudent}
-                    onChange={(e) => setMaxBooksPerStudent(e.target.value)}
-                    className="max-w-32"
-                  />
-                  <p className="text-xs text-gray-500">Default limit (can be overridden per class)</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <div className="flex justify-end">
-            <Button onClick={handleSaveGeneralSettings} className="bg-blue-600 hover:bg-blue-700">
-              <Save className="w-4 h-4 mr-2" />
-              Save General Settings
-            </Button>
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="fine-management" className="space-y-6">
-          {/* Fine Management */}
-          <Card className="shadow-sm border-0">
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <div className="bg-green-100 p-1 rounded-full flex items-center justify-center w-6 h-6">
-                  <KenyaShillingIcon />
-                </div>
-                Fine Management
-              </CardTitle>
-              <p className="text-sm text-gray-600">Configure fine policies and rates</p>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div className="space-y-1">
-                  <Label className="text-sm font-medium">Enable Fine System</Label>
-                  <p className="text-xs text-gray-600">Charge fines for overdue books and damages</p>
-                </div>
-                <Switch
-                  checked={enableFines}
-                  onCheckedChange={(checked) => setEnableFines(checked)}
-                />
-              </div>
-
-              <div className="space-y-3">
-                <Label htmlFor="finePerDay" className="text-sm font-medium">Fine Per Day (KSh)</Label>
-                <Input
-                  id="finePerDay"
-                  type="number"
-                  min="0"
-                  max="1000"
-                  value={finePerDay}
-                  onChange={(e) => setFinePerDay(e.target.value)}
-                  className="max-w-32"
-                  disabled={!enableFines}
-                />
-                <p className="text-xs text-gray-500">Amount charged per day for overdue books</p>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <div className="flex justify-end">
-            <Button onClick={handleSaveFineSettings} className="bg-blue-600 hover:bg-blue-700">
-              <Save className="w-4 h-4 mr-2" />
-              Save Fine Settings
-            </Button>
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="class-limits" className="space-y-6">
-          {/* Class-Specific Limits */}
-          <Card className="shadow-sm border-0">
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <GraduationCap className="w-5 h-5 text-purple-600" />
-                Class-Specific Book Limits
-              </CardTitle>
-              <p className="text-sm text-gray-600">Set maximum books allowed per class/form level</p>
-            </CardHeader>
-            <CardContent className="space-y-8">
-              {/* Form System */}
-              <div>
-                <h3 className="text-lg font-medium mb-3 text-gray-700">Form System (Secondary School)</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                  {['Form 1', 'Form 2', 'Form 3', 'Form 4'].map((formLevel) => (
-                    <div key={formLevel} className="space-y-2">
-                      <Label htmlFor={`max-${formLevel}`} className="text-sm font-medium">{formLevel}</Label>
-                      <Input
-                        id={`max-${formLevel}`}
-                        type="number"
-                        min="1"
-                        max="10"
-                        value={classLimits[formLevel] || 2}
-                        onChange={(e) => handleClassLimitChange(formLevel, e.target.value)}
-                        className="max-w-full"
-                      />
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor={`limit-${key}`} className="text-base font-semibold text-gray-800">
+                      {label}
+                    </Label>
+                    <div className={`px-2 py-1 rounded-full text-xs font-medium bg-${color}-100 text-${color}-700`}>
+                      All Sections
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Grade System */}
-              <div>
-                <h3 className="text-lg font-medium mb-3 text-gray-700">Grade System (Primary/CBC)</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-6 gap-4">
-                  {['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'].map((gradeLevel) => (
-                    <div key={gradeLevel} className="space-y-2">
-                      <Label htmlFor={`max-${gradeLevel}`} className="text-sm font-medium">{gradeLevel}</Label>
-                      <Input
-                        id={`max-${gradeLevel}`}
-                        type="number"
-                        min="1"
-                        max="10"
-                        value={classLimits[gradeLevel] || 2}
-                        onChange={(e) => handleClassLimitChange(gradeLevel, e.target.value)}
-                        className="max-w-full"
-                      />
+                  </div>
+                  
+                  <div className="relative">
+                    <BookOpen className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-${color}-500`} />
+                    <Input
+                      id={`limit-${key}`}
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={formLimits[key]}
+                      onChange={(e) => handleFormLimitChange(key, e.target.value)}
+                      className="pl-10 text-center text-lg font-bold border-2 focus:ring-2 focus:ring-${color}-400"
+                    />
+                  </div>
+                  
+                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                    <Users className="w-3 h-3" />
+                    <span>Max {formLimits[key]} book{formLimits[key] > 1 ? 's' : ''} per student</span>
+                  </div>
+                  
+                  {formLimits[key] !== recommended && (
+                    <div className="text-xs text-gray-500 italic flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      Recommended: {recommended}
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
-            </CardContent>
-          </Card>
-          
-          <div className="flex justify-end">
-            <Button onClick={handleSaveClassLimits} className="bg-blue-600 hover:bg-blue-700">
-              <Save className="w-4 h-4 mr-2" />
-              Save Class Limits
-            </Button>
+            ))}
           </div>
-        </TabsContent>
-        
-        <TabsContent value="academic-calendar" className="space-y-6">
-          {/* Academic Calendar Management */}
-          <Card className="shadow-sm border-0">
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <Calendar className="w-5 h-5 text-orange-600" />
-                Academic Calendar Management
-              </CardTitle>
-              <p className="text-sm text-gray-600">Manage school terms, academic years, and student promotions</p>
-            </CardHeader>
-            <CardContent>
-              <EnhancedCalendarManagement />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+          
+          <div className="mt-4 p-4 bg-purple-100 rounded-lg border border-purple-200">
+            <div className="flex items-start gap-2 text-sm text-purple-800">
+              <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <div>
+                <strong>Note:</strong> These limits apply to ALL classes in each form. 
+                For example, Form 2A, Form 2B, Form 2C, Form 2 East, and Form 2 West will all use the Form 2 limit of <strong>{formLimits.form2} book(s)</strong>.
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Primary School / CBC - Grade System */}
+      <Card className="shadow-md border-0 bg-gradient-to-br from-teal-50 to-white">
+        <CardHeader className="pb-4 border-b bg-gradient-to-r from-teal-600 to-teal-700 text-white">
+          <CardTitle className="flex items-center gap-3 text-xl">
+            <div className="p-2 bg-white/20 rounded-lg">
+              <School className="w-6 h-6" />
+            </div>
+            <div>
+              <div>Primary School / CBC (Grade System)</div>
+              <p className="text-sm font-normal text-teal-100 mt-1">
+                Configure maximum books per student for Grade 7-12 (applies to all sections)
+              </p>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {[
+              { key: 'grade7' as const, label: 'Grade 7' },
+              { key: 'grade8' as const, label: 'Grade 8' },
+              { key: 'grade9' as const, label: 'Grade 9' },
+              { key: 'grade10' as const, label: 'Grade 10' },
+              { key: 'grade11' as const, label: 'Grade 11' },
+              { key: 'grade12' as const, label: 'Grade 12' }
+            ].map(({ key, label }) => (
+              <div key={key} className="p-4 rounded-lg border-2 border-teal-200 bg-teal-50/50 hover:shadow-md transition-all duration-200">
+                <div className="space-y-2">
+                  <Label htmlFor={`limit-${key}`} className="text-sm font-semibold text-gray-800">
+                    {label}
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id={`limit-${key}`}
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={gradeLimits[key]}
+                      onChange={(e) => handleGradeLimitChange(key, e.target.value)}
+                      className="text-center text-lg font-bold border-2 focus:ring-2 focus:ring-teal-400"
+                    />
+                  </div>
+                  <div className="text-xs text-gray-600 text-center">
+                    Max {gradeLimits[key]} book{gradeLimits[key] > 1 ? 's' : ''}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="mt-4 p-4 bg-teal-100 rounded-lg border border-teal-200">
+            <div className="flex items-start gap-2 text-sm text-teal-800">
+              <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <div>
+                <strong>CBC System:</strong> All sections of the same grade share the same borrowing limit.
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      
+      {/* Save Button */}
+      <div className="flex justify-end gap-3">
+        <Button 
+          variant="outline" 
+          onClick={() => {
+            setFormLimits({ form1: 1, form2: 1, form3: 2, form4: 3 });
+            setGradeLimits({ grade7: 2, grade8: 2, grade9: 2, grade10: 2, grade11: 2, grade12: 2 });
+          }}
+          className="border-gray-300"
+        >
+          Reset to Defaults
+        </Button>
+        <Button 
+          onClick={handleSaveClassLimits} 
+          className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-md"
+          size="lg"
+        >
+          <Save className="w-5 h-5 mr-2" />
+          Save Borrowing Limits
+        </Button>
+      </div>
     </div>
   );
 };

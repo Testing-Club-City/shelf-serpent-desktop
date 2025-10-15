@@ -44,11 +44,29 @@ pub mod simple_book_search;
 pub mod sync_status;
 pub mod reports;
 pub mod user_management;
+pub mod graduated_students;
+pub mod borrowing_limits;
+pub mod class_limit_updater;
 // pub mod test_book_copies;
 
 // pub use test_book_copies::test_book_copies_creation;
 pub use reports::*;
+pub use graduated_students::{
+    get_graduated_students_paginated, 
+    get_graduated_student_clearance,
+    get_graduated_students,
+    get_student_clearance_data
+};
 pub use user_management::{update_user_password, update_user_profile};
+pub use borrowing_limits::{
+    check_student_borrowing_limit,
+    check_staff_borrowing_limit,
+    get_class_borrowing_limit
+};
+pub use class_limit_updater::{
+    update_class_limits_by_form_level,
+    get_classes_by_level
+};
 
 // Re-export report commands
 pub use reports::{

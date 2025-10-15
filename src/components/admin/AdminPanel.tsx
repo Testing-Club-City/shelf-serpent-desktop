@@ -195,13 +195,13 @@ export const AdminPanel = ({ initialTab = 'overview' }: AdminPanelProps) => {
       ]
     },
     {
-      title: "System Settings",
+      title: "Class Limits",
       items: [
         {
-          name: "System Settings",
+          name: "Class Limits",
           icon: <Settings className="h-5 w-5" />,
           component: <SystemSettings />,
-          description: "Configure system-wide settings, policies, and preferences"
+          description: "Configure borrowing limits per form/grade level"
         }
       ]
     },
@@ -289,7 +289,7 @@ export const AdminPanel = ({ initialTab = 'overview' }: AdminPanelProps) => {
               </TabsTrigger>
               <TabsTrigger value="settings" className="flex items-center gap-2 py-3">
                 <Settings className="h-4 w-4" />
-                <span className="hidden sm:inline">Settings</span>
+                <span className="hidden sm:inline">Class Limits</span>
               </TabsTrigger>
               <TabsTrigger value="logs" className="flex items-center gap-2 py-3">
                 <Activity className="h-4 w-4" />
@@ -509,18 +509,18 @@ export const AdminPanel = ({ initialTab = 'overview' }: AdminPanelProps) => {
             </Card>
           </TabsContent>
 
-          {/* System Settings */}
+          {/* Class Limits */}
           <TabsContent value="settings">
             <Card className="shadow-sm border-0">
               <CardHeader className="pb-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <Settings className="h-5 w-5 text-gray-600" />
+                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <Settings className="h-5 w-5 text-purple-600" />
                   </div>
                   <div>
-                    <CardTitle className="text-2xl">System Settings</CardTitle>
+                    <CardTitle className="text-2xl">Class Borrowing Limits</CardTitle>
                     <CardDescription className="text-base">
-                      Configure system-wide settings, policies, and preferences
+                      Configure maximum books allowed per form/grade level
                     </CardDescription>
                   </div>
                 </div>

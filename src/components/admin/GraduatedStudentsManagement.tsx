@@ -1,413 +1,643 @@
-import React, { useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+﻿import React, { useState, useMemo, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { GraduationCap, Search, Eye, BookOpen, Currency, Calendar } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { GraduationCap, Search, BookOpen, DollarSign, CheckCircle2, AlertCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2, X } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { usePayFine } from '@/hooks/useFineManagement';
 import { useBookReturn } from '@/hooks/useBorrowings';
 import { formatCurrency } from '@/lib/utils';
+import { invoke } from '@tauri-apps/api/core';
 
-export const GraduatedStudentsManagement: React.FC = () => {
+interface GraduatedStudent {
+  id: string;
+  first_name: string;
+  last_name: string;
+  admission_number: string;
+  class_grade?: string;
+  email?: string;
+  phone?: string;
+  status: string;
+  created_at?: string;
+  updated_at?: string;
+  activeBorrowings?: any[];
+  unpaidFines?: any[];
+  isCleared?: boolean;
+  totalFineAmount?: number;
+  activeBorrowingCount?: number;
+  unpaidFineCount?: number;
+}
+
+interface GraduatedStudentResponse {
+  students: GraduatedStudent[];
+  total_count: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+interface ClearanceData {
+  has_active_borrowings: boolean;
+  has_unpaid_fines: boolean;
+  active_borrowing_count: number;
+  unpaid_fine_count: number;
+  total_fine_amount: number;
+  active_borrowings?: BorrowingDetail[];
+  unpaid_fines?: FineDetail[];
+}
+
+interface BorrowingDetail {
+  id: string;
+  book_copy_id?: string;
+  borrowed_date?: string;
+  due_date: string;
+  tracking_code?: string;
+  book_copy_title?: string;
+  book_copy_author?: string;
+  copy_identifier?: string;
+  book_copy_tracking_code?: string;
+  legacy_book_id?: number;
+  book_title?: string;
+  book_author?: string;
+  book_legacy_id?: number;
+}
+
+interface FineDetail {
+  id: string;
+  amount: number;
+  description?: string;
+  fine_type: string;
+  created_at: string;
+  borrowing_id?: string;
+}
+
+export function GraduatedStudentsManagement() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [clearanceFilter, setClearanceFilter] = useState<'all' | 'cleared' | 'not-cleared'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [selectedStudent, setSelectedStudent] = useState<GraduatedStudent | null>(null);
+  const [clearanceDetails, setClearanceDetails] = useState<ClearanceData | null>(null);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const payFine = usePayFine();
-  const bookReturn = useBookReturn();
+  const { mutate: payFine } = usePayFine();
+  const { mutate: returnBook } = useBookReturn();
 
-  // Fetch graduated students with their borrowing and fine status
-  const { data: graduatedStudents = [], isLoading } = useQuery({
-    queryKey: ['graduated-students', searchTerm, statusFilter],
+  // Fetch graduated students from local database
+  const { data: graduatedData, isLoading, error } = useQuery<GraduatedStudentResponse>({
+    queryKey: ['graduated-students', currentPage, pageSize, searchTerm],
     queryFn: async () => {
-      let query = supabase
-        .from('students')
-        .select(`
-          *,
-          borrowings!inner (
-            id,
-            status,
-            due_date,
-            is_lost,
-            tracking_code,
-            books (title, author)
-          ),
-          fines (
-            id,
-            amount,
-            status,
-            fine_type,
-            description
-          )
-        `)
-        .eq('status', 'graduated')
-        .order('first_name');
-
-      // Apply search filter if search term exists
-      if (searchTerm) {
-        query = query.or(
-          `first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,admission_number.ilike.%${searchTerm}%`
-        );
-      }
-
-      const { data, error, count } = await query;
-
-      if (error) throw error;
-      return data || [];
+      const result = await invoke<GraduatedStudentResponse>('get_graduated_students', {
+        page: currentPage,
+        pageSize: pageSize,
+        searchTerm: searchTerm || null
+      });
+      
+      // Fetch clearance data for all students in this page
+      const studentsWithClearance = await Promise.all(
+        result.students.map(async (student) => {
+          try {
+            const clearanceData = await invoke<ClearanceData>('get_student_clearance_data', { 
+              studentId: student.id 
+            });
+            return {
+              ...student,
+              activeBorrowingCount: clearanceData.active_borrowing_count,
+              unpaidFineCount: clearanceData.unpaid_fine_count,
+              totalFineAmount: clearanceData.total_fine_amount,
+              isCleared: !clearanceData.has_active_borrowings && !clearanceData.has_unpaid_fines,
+            };
+          } catch (error) {
+            console.error(`Failed to fetch clearance for student ${student.id}:`, error);
+            return {
+              ...student,
+              activeBorrowingCount: 0,
+              unpaidFineCount: 0,
+              totalFineAmount: 0,
+              isCleared: false,
+            };
+          }
+        })
+      );
+      
+      return {
+        ...result,
+        students: studentsWithClearance,
+      };
     },
   });
 
-  const filteredStudents = useMemo(() => {
-    return graduatedStudents.filter(student => {
-      const matchesSearch = student.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          student.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          student.admission_number?.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      if (!matchesSearch) return false;
-
-      if (statusFilter === 'pending-returns') {
-        return student.borrowings?.some(b => b.status === 'active');
-      }
-      if (statusFilter === 'pending-fines') {
-        return student.fines?.some(f => f.status === 'unpaid');
-      }
-      
-      return true;
-    });
-  }, [graduatedStudents, searchTerm, statusFilter]);
-
-  // Calculate pagination
-  const totalItems = filteredStudents.length;
-  const totalPages = Math.ceil(totalItems / pageSize);
-  const startIndex = (currentPage - 1) * pageSize;
-  const paginatedStudents = filteredStudents.slice(startIndex, startIndex + pageSize);
-
-  // Handle page change
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    // Scroll to top of the table
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  // Fetch clearance data for a specific student
+  const fetchClearanceData = async (studentId: string): Promise<ClearanceData> => {
+    return await invoke<ClearanceData>('get_student_clearance_data', { studentId });
   };
 
-  // Handle page size change
-  const handlePageSizeChange = (size: number) => {
-    setPageSize(size);
-    setCurrentPage(1); // Reset to first page when changing page size
-  };
-
-  const handleMarkFineAsPaid = async (fineId: string, studentName: string) => {
+  const handleReturnBook = async (borrowingId: string, studentId: string) => {
     try {
-      await payFine.mutateAsync(fineId);
-      queryClient.invalidateQueries({ queryKey: ['graduated-students'] });
-    } catch (error) {
-      console.error('Error paying fine:', error);
-    }
-  };
-
-  const handleProcessReturn = async (borrowingId: string, studentName: string, trackingCode: string) => {
-    try {
-      await bookReturn.mutateAsync({
-        id: borrowingId,
-        condition_at_return: 'good',
-        fine_amount: 0,
-        notes: `Graduated student return processed for ${studentName}`,
-        is_lost: false,
-        returned_tracking_code: trackingCode,
-        prevent_auto_fine: true // Prevent auto-fine for graduated students
-      });
-      
-      queryClient.invalidateQueries({ queryKey: ['graduated-students'] });
-      
+      await invoke('return_book', { borrowingId });
       toast({
         title: 'Success',
-        description: `Book return processed for ${studentName}`,
+        description: 'Book returned successfully',
       });
+      queryClient.invalidateQueries({ queryKey: ['graduated-students'] });
     } catch (error) {
-      console.error('Error processing return:', error);
       toast({
         title: 'Error',
-        description: 'Failed to process book return',
+        description: 'Failed to return book',
         variant: 'destructive',
       });
     }
   };
 
-  const handleMarkBookLost = async (borrowingId: string, studentName: string) => {
+  const handlePayFine = async (fineId: string, studentId: string) => {
     try {
-      await bookReturn.mutateAsync({
-        id: borrowingId,
-        condition_at_return: 'lost',
-        fine_amount: 500, // Standard lost book fine
-        notes: `Book marked as lost for graduated student ${studentName}`,
-        is_lost: true,
-        prevent_auto_fine: true
-      });
-      
-      queryClient.invalidateQueries({ queryKey: ['graduated-students'] });
-      
+      await invoke('pay_fine', { fineId });
       toast({
         title: 'Success',
-        description: `Book marked as lost for ${studentName}`,
+        description: 'Fine paid successfully',
       });
+      queryClient.invalidateQueries({ queryKey: ['graduated-students'] });
     } catch (error) {
-      console.error('Error marking book as lost:', error);
       toast({
         title: 'Error',
-        description: 'Failed to mark book as lost',
+        description: 'Failed to pay fine',
         variant: 'destructive',
       });
     }
   };
 
-  const getStudentObligations = (student: any) => {
-    const activeBorrowings = student.borrowings?.filter(b => b.status === 'active') || [];
-    const unpaidFines = student.fines?.filter(f => f.status === 'unpaid') || [];
-    const totalFineAmount = unpaidFines.reduce((sum, fine) => sum + parseFloat(fine.amount || 0), 0);
-
-    return { activeBorrowings, unpaidFines, totalFineAmount };
+  const handleViewDetails = async (student: GraduatedStudent) => {
+    try {
+      const clearanceData = await fetchClearanceData(student.id);
+      setClearanceDetails(clearanceData);
+      setSelectedStudent({
+        ...student,
+        activeBorrowingCount: clearanceData.active_borrowing_count,
+        unpaidFineCount: clearanceData.unpaid_fine_count,
+        totalFineAmount: clearanceData.total_fine_amount,
+        isCleared: !clearanceData.has_active_borrowings && !clearanceData.has_unpaid_fines,
+      });
+      setIsDetailsDialogOpen(true);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch student details',
+        variant: 'destructive',
+      });
+    }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading graduated students...</div>
-      </div>
-    );
-  }
+  const students = graduatedData?.students || [];
+  
+  // Apply clearance filter
+  const filteredStudents = students.filter(student => {
+    if (clearanceFilter === 'cleared') {
+      return student.isCleared === true;
+    } else if (clearanceFilter === 'not-cleared') {
+      return student.isCleared === false;
+    }
+    return true; // 'all'
+  });
+  
+  const totalPages = graduatedData?.total_pages || 1;
+  const clearedCount = students.filter(s => s.isCleared).length;
+  const notClearedCount = students.filter(s => !s.isCleared).length;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-gray-600">Manage alumni records, outstanding books, and fine collections</p>
-        </div>
-      </div>
-
-      {/* Filters */}
       <Card>
-        <CardContent className="p-6">
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <GraduationCap className="h-5 w-5" />
+            Graduated Students Management
+          </CardTitle>
+          <CardDescription>
+            Manage graduated students and their clearance status
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Search and Filters */}
+          <div className="flex gap-3 items-center flex-wrap">
+            <div className="flex-1 min-w-[300px] relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search by name or admission number..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="pl-10"
               />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48">
+            
+            <Select 
+              value={clearanceFilter} 
+              onValueChange={(v: 'all' | 'cleared' | 'not-cleared') => {
+                setClearanceFilter(v);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Graduated</SelectItem>
-                <SelectItem value="pending-returns">Pending Returns</SelectItem>
-                <SelectItem value="pending-fines">Pending Fines</SelectItem>
+                <SelectItem value="all">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-gray-400" />
+                    All Students
+                  </div>
+                </SelectItem>
+                <SelectItem value="cleared">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    Cleared Only
+                  </div>
+                </SelectItem>
+                <SelectItem value="not-cleared">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                    Not Cleared
+                  </div>
+                </SelectItem>
               </SelectContent>
             </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Graduated Students Table */}
-      <Card>
-        <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <CardTitle>Graduated Students ({filteredStudents.length})</CardTitle>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">Rows per page:</span>
-            <Select
-              value={pageSize.toString()}
-              onValueChange={(value) => handlePageSizeChange(Number(value))}
-            >
-              <SelectTrigger className="w-20">
+            
+            <Select value={pageSize.toString()} onValueChange={(v) => setPageSize(Number(v))}>
+              <SelectTrigger className="w-[140px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="10">10</SelectItem>
-                <SelectItem value="25">25</SelectItem>
-                <SelectItem value="50">50</SelectItem>
-                <SelectItem value="100">100</SelectItem>
+                <SelectItem value="10">10 per page</SelectItem>
+                <SelectItem value="25">25 per page</SelectItem>
+                <SelectItem value="50">50 per page</SelectItem>
+                <SelectItem value="100">100 per page</SelectItem>
               </SelectContent>
             </Select>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Student</TableHead>
-                  <TableHead>Admission No.</TableHead>
-                  <TableHead>Graduation Year</TableHead>
-                  <TableHead>Pending Returns</TableHead>
-                  <TableHead>Outstanding Fines</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedStudents.map((student) => {
-                  const { activeBorrowings, unpaidFines, totalFineAmount } = getStudentObligations(student);
-                  
-                  return (
+
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-4">
+            <Card className="cursor-pointer hover:bg-accent transition-colors" onClick={() => setClearanceFilter('all')}>
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold">{graduatedData?.total_count || 0}</div>
+                <p className="text-xs text-muted-foreground">Total Graduated</p>
+              </CardContent>
+            </Card>
+            <Card className="cursor-pointer hover:bg-accent transition-colors" onClick={() => setClearanceFilter('cleared')}>
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold text-green-600">
+                  {clearedCount}
+                </div>
+                <p className="text-xs text-muted-foreground">Cleared</p>
+              </CardContent>
+            </Card>
+            <Card className="cursor-pointer hover:bg-accent transition-colors" onClick={() => setClearanceFilter('not-cleared')}>
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold text-red-600">
+                  {notClearedCount}
+                </div>
+                <p className="text-xs text-muted-foreground">Pending Clearance</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Active Filter Badge */}
+          {clearanceFilter !== 'all' && (
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-sm">
+                Showing: {clearanceFilter === 'cleared' ? 'Cleared Students' : 'Not Cleared Students'}
+              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setClearanceFilter('all')}
+                className="h-6 text-xs"
+              >
+                Clear Filter
+              </Button>
+            </div>
+          )}
+
+          {/* Students Table */}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center py-8 text-red-600">
+              <AlertCircle className="h-5 w-5 mr-2" />
+              Error loading graduated students
+            </div>
+          ) : filteredStudents.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              {clearanceFilter !== 'all' 
+                ? `No ${clearanceFilter === 'cleared' ? 'cleared' : 'uncleared'} students found`
+                : 'No graduated students found'
+              }
+            </div>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Admission No.</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Class</TableHead>
+                    <TableHead>Contact</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredStudents.map((student) => (
                     <TableRow key={student.id}>
+                      <TableCell className="font-medium">{student.admission_number}</TableCell>
+                      <TableCell>{student.first_name} {student.last_name}</TableCell>
+                      <TableCell>{student.class_grade || 'N/A'}</TableCell>
                       <TableCell>
-                        <div className="font-medium">{student.first_name} {student.last_name}</div>
-                        <div className="text-sm text-gray-500">Alumni</div>
-                      </TableCell>
-                      <TableCell>{student.admission_number}</TableCell>
-                      <TableCell>{student.academic_year}</TableCell>
-                      <TableCell>
-                        {activeBorrowings.length > 0 ? (
-                          <Badge variant="destructive">{activeBorrowings.length} books</Badge>
-                        ) : (
-                          <Badge variant="secondary">None</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {totalFineAmount > 0 ? (
-                          <Badge variant="destructive">{formatCurrency(totalFineAmount)}</Badge>
-                        ) : (
-                          <Badge variant="secondary">None</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-2">
-                          {/* Process returns for each active borrowing */}
-                          {activeBorrowings.map((borrowing) => (
-                            <div key={borrowing.id} className="flex gap-1">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleProcessReturn(
-                                  borrowing.id, 
-                                  `${student.first_name} ${student.last_name}`,
-                                  borrowing.tracking_code
-                                )}
-                                disabled={bookReturn.isPending}
-                              >
-                                <BookOpen className="w-4 h-4 mr-1" />
-                                Return
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => handleMarkBookLost(
-                                  borrowing.id, 
-                                  `${student.first_name} ${student.last_name}`
-                                )}
-                                disabled={bookReturn.isPending}
-                              >
-                                Mark Lost
-                              </Button>
-                            </div>
-                          ))}
-                          
-                          {/* Pay fines */}
-                          {unpaidFines.map((fine) => (
-                            <Button
-                              key={fine.id}
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleMarkFineAsPaid(fine.id, `${student.first_name} ${student.last_name}`)}
-                              disabled={payFine.isPending}
-                            >
-                              <Currency className="w-4 h-4 mr-1" />
-                              Pay {formatCurrency(parseFloat(fine.amount))}
-                            </Button>
-                          ))}
-                          
-                          {activeBorrowings.length === 0 && unpaidFines.length === 0 && (
-                            <Badge variant="secondary" className="text-green-700 bg-green-100">
-                              All Clear ✓
-                            </Badge>
-                          )}
+                        <div className="text-sm">
+                          <div>{student.email || 'No email'}</div>
+                          <div className="text-muted-foreground">{student.phone || 'No phone'}</div>
                         </div>
                       </TableCell>
+                      <TableCell>
+                        {student.isCleared ? (
+                          <Badge className="bg-green-600">
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            Cleared
+                          </Badge>
+                        ) : (
+                          <Badge variant="destructive">
+                            <AlertCircle className="h-3 w-3 mr-1" />
+                            Pending
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleViewDetails(student)}
+                        >
+                          View Details
+                        </Button>
+                      </TableCell>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-            
-            {/* Pagination Controls */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-6 px-4 py-3 border-t">
-                <div className="text-sm text-gray-500">
-                  Showing {startIndex + 1} to {Math.min(startIndex + pageSize, totalItems)} of {totalItems} students
+                  ))}
+                </TableBody>
+              </Table>
+
+              {/* Pagination */}
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">
+                  {clearanceFilter !== 'all' ? (
+                    <>
+                      Showing {filteredStudents.length} of {graduatedData?.total_count || 0} students
+                      <span className="ml-1 text-primary">
+                        ({clearanceFilter === 'cleared' ? 'Cleared' : 'Not Cleared'})
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, graduatedData?.total_count || 0)} of {graduatedData?.total_count || 0} students
+                    </>
+                  )}
                 </div>
-                <div className="flex space-x-1">
+                <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handlePageChange(1)}
+                    onClick={() => setCurrentPage(1)}
                     disabled={currentPage === 1}
                   >
-                    «
+                    <ChevronsLeft className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handlePageChange(currentPage - 1)}
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
                   >
-                    ‹
+                    <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    // Calculate page numbers to show (current page in the middle if possible)
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-                    
-                    return (
-                      <Button
-                        key={pageNum}
-                        variant={currentPage === pageNum ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handlePageChange(pageNum)}
-                      >
-                        {pageNum}
-                      </Button>
-                    );
-                  })}
-                  
+                  <span className="text-sm">
+                    Page {currentPage} of {totalPages}
+                  </span>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handlePageChange(currentPage + 1)}
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
                   >
-                    ›
+                    <ChevronRight className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handlePageChange(totalPages)}
+                    onClick={() => setCurrentPage(totalPages)}
                     disabled={currentPage === totalPages}
                   >
-                    »
+                    <ChevronsRight className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
-            )}
-          </div>
+            </>
+          )}
         </CardContent>
       </Card>
+
+      {/* Student Details Dialog */}
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <GraduationCap className="h-5 w-5" />
+              Student Clearance Details
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedStudent && clearanceDetails && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Name</p>
+                  <p className="text-lg font-semibold">{selectedStudent.first_name} {selectedStudent.last_name}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Admission Number</p>
+                  <p className="text-lg font-semibold">{selectedStudent.admission_number}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Class</p>
+                  <p className="text-lg">{selectedStudent.class_grade || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Clearance Status</p>
+                  <Badge className={selectedStudent.isCleared ? 'bg-green-600' : 'bg-red-600'}>
+                    {selectedStudent.isCleared ? '✓ Cleared' : '⚠ Pending Clearance'}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Active Borrowings with Book Details */}
+              <div className="border-t pt-4">
+                <h4 className="font-semibold mb-3 flex items-center gap-2 text-lg">
+                  <BookOpen className="h-5 w-5" />
+                  Active Borrowings ({selectedStudent.activeBorrowingCount || 0})
+                </h4>
+                {clearanceDetails.active_borrowings && clearanceDetails.active_borrowings.length > 0 ? (
+                  <div className="space-y-3">
+                    {clearanceDetails.active_borrowings.map((borrowing) => (
+                      <Card key={borrowing.id} className="bg-red-50 border-red-200">
+                        <CardContent className="pt-4">
+                          <div className="space-y-3">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <p className="font-semibold text-lg">
+                                  {borrowing.book_copy_title || borrowing.book_title || 'Unknown Title'}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  by {borrowing.book_copy_author || borrowing.book_author || 'Unknown Author'}
+                                </p>
+                              </div>
+                              <Badge variant="destructive" className="ml-2">Not Returned</Badge>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-3 text-sm bg-white/50 p-3 rounded">
+                              {(borrowing.legacy_book_id || borrowing.book_legacy_id) && (
+                                <div className="col-span-2">
+                                  <span className="font-semibold">Legacy Book ID:</span>{' '}
+                                  <span className="font-mono bg-blue-100 px-2 py-1 rounded text-base">
+                                    {borrowing.legacy_book_id || borrowing.book_legacy_id}
+                                  </span>
+                                </div>
+                              )}
+                              {borrowing.copy_identifier && (
+                                <div>
+                                  <span className="font-semibold">Copy ID:</span>{' '}
+                                  <span className="font-mono">{borrowing.copy_identifier}</span>
+                                </div>
+                              )}
+                              {(borrowing.tracking_code || borrowing.book_copy_tracking_code) && (
+                                <div>
+                                  <span className="font-semibold">Tracking Code:</span>{' '}
+                                  <span className="font-mono">{borrowing.tracking_code || borrowing.book_copy_tracking_code}</span>
+                                </div>
+                              )}
+                              {borrowing.borrowed_date && (
+                                <div>
+                                  <span className="font-semibold">Borrowed:</span>{' '}
+                                  {new Date(borrowing.borrowed_date).toLocaleDateString()}
+                                </div>
+                              )}
+                              {borrowing.due_date && (
+                                <div className="text-red-600 font-semibold">
+                                  <span>Due Date:</span>{' '}
+                                  {new Date(borrowing.due_date).toLocaleDateString()}
+                                </div>
+                              )}
+                            </div>
+                            
+                            <Button
+                              size="sm"
+                              onClick={() => handleReturnBook(borrowing.id, selectedStudent.id)}
+                              className="w-full"
+                            >
+                              Mark as Returned
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                    <div className="text-sm text-muted-foreground bg-yellow-50 border border-yellow-200 rounded p-3">
+                      ⚠️ All books must be returned before student clearance.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-green-600 bg-green-50 border border-green-200 rounded p-3">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>No active borrowings - All books returned</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Unpaid Fines */}
+              <div className="border-t pt-4">
+                <h4 className="font-semibold mb-3 flex items-center gap-2 text-lg">
+                  <DollarSign className="h-5 w-5" />
+                  Unpaid Fines ({selectedStudent.unpaidFineCount || 0})
+                </h4>
+                {clearanceDetails.unpaid_fines && clearanceDetails.unpaid_fines.length > 0 ? (
+                  <div className="space-y-3">
+                    {clearanceDetails.unpaid_fines.map((fine) => (
+                      <Card key={fine.id} className="bg-yellow-50 border-yellow-200">
+                        <CardContent className="pt-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 space-y-1">
+                              <p className="font-semibold text-lg text-red-600">
+                                {formatCurrency(fine.amount)}
+                              </p>
+                              <p className="text-sm font-medium">
+                                Type: {fine.fine_type.replace('_', ' ').toUpperCase()}
+                              </p>
+                              {fine.description && (
+                                <p className="text-sm text-muted-foreground">{fine.description}</p>
+                              )}
+                              {fine.created_at && (
+                                <p className="text-xs text-muted-foreground">
+                                  Date: {new Date(fine.created_at).toLocaleDateString()}
+                                </p>
+                              )}
+                            </div>
+                            <Button
+                              size="sm"
+                              onClick={() => handlePayFine(fine.id, selectedStudent.id)}
+                            >
+                              Pay Fine
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                    <div className="bg-red-100 border border-red-300 rounded p-4">
+                      <p className="text-xl font-bold text-red-700">
+                        Total Outstanding: {formatCurrency(selectedStudent.totalFineAmount || 0)}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-green-600 bg-green-50 border border-green-200 rounded p-3">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>No unpaid fines</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Clearance Summary */}
+              {selectedStudent.isCleared && (
+                <div className="border-t pt-4">
+                  <div className="bg-green-50 border border-green-300 rounded p-4 flex items-center gap-3">
+                    <CheckCircle2 className="h-8 w-8 text-green-600" />
+                    <div>
+                      <p className="font-semibold text-lg text-green-800">Student Cleared ✓</p>
+                      <p className="text-sm text-green-700">
+                        This student has returned all books and paid all fines. They are cleared for graduation.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
-};
+}

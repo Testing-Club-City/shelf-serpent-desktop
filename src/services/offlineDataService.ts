@@ -361,6 +361,15 @@ export class OfflineDataService {
     }
   }
 
+  static async getFinesByStudent(studentId: string): Promise<any[]> {
+    try {
+      return await invoke('get_fines_by_student', { studentId });
+    } catch (error) {
+      console.error('Failed to get fines by student:', error);
+      throw error;
+    }
+  }
+
   // Search methods for group borrowing
   static async searchBookCopyById(bookId: number): Promise<any> {
     try {
