@@ -489,15 +489,17 @@ export const AdminPanel = ({ initialTab = 'overview' }: AdminPanelProps) => {
 
           {/* Academic Calendar */}
           <TabsContent value="calendar">
-            <Card className="shadow-sm border-0">
-              <CardHeader className="pb-6">
+            <Card className="shadow-sm border-slate-200">
+              <CardHeader className="pb-6 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                    <Calendar className="h-5 w-5 text-orange-600" />
+                  <div className="w-12 h-12 bg-white border-2 border-slate-300 rounded-lg flex items-center justify-center shadow-sm">
+                    <Calendar className="h-6 w-6 text-slate-700" />
                   </div>
                   <div>
-                    <CardTitle className="text-2xl">Academic Calendar Management</CardTitle>
-                    <CardDescription className="text-base">
+                    <CardTitle className="text-2xl font-bold text-slate-900">
+                      Academic Calendar Management
+                    </CardTitle>
+                    <CardDescription className="text-base text-slate-600 mt-1">
                       Manage 3-term academic years and student promotions
                     </CardDescription>
                   </div>

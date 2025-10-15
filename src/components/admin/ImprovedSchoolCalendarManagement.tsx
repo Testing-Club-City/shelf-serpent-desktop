@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Calendar, CalendarDays, Plus, BookOpen, Users, AlertCircle, CheckCircle, ArrowUp } from 'lucide-react';
+import { Calendar, CalendarDays, Plus, CheckCircle2, Circle, Clock, Info } from 'lucide-react';
 import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
@@ -185,7 +185,10 @@ export const ImprovedSchoolCalendarManagement: React.FC = () => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading academic calendar...</div>
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-700"></div>
+          <div className="text-slate-600 font-medium">Loading academic calendar...</div>
+        </div>
       </div>
     );
   }
@@ -194,41 +197,53 @@ export const ImprovedSchoolCalendarManagement: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Academic Calendar Management</h2>
+          <p className="text-slate-600 mt-1">Manage 3-term academic years and student promotions</p>
+        </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700">
+            <Button className="bg-slate-700 hover:bg-slate-800 text-white shadow-sm">
               <Plus className="w-4 h-4 mr-2" />
               Add New Term
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md border-slate-200">
             <DialogHeader>
-              <DialogTitle>Create New School Term</DialogTitle>
+              <DialogTitle className="text-slate-900">Create New School Term</DialogTitle>
+              <p className="text-sm text-slate-600 mt-2">
+                Configure a new term for the academic calendar
+              </p>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-5 mt-4">
               <div>
-                <Label htmlFor="academic_year">Academic Year *</Label>
+                <Label htmlFor="academic_year" className="text-slate-700 font-medium">
+                  Academic Year *
+                </Label>
                 <Input
                   id="academic_year"
                   value={formData.academic_year}
                   onChange={(e) => setFormData({ ...formData, academic_year: e.target.value })}
-                  placeholder="e.g., 2024"
+                  placeholder="e.g., 2025"
+                  className="mt-1.5 border-slate-300 focus:border-slate-500 focus:ring-slate-500"
                   required
                 />
               </div>
 
               <div>
-                <Label htmlFor="term_name">Term *</Label>
+                <Label htmlFor="term_name" className="text-slate-700 font-medium">
+                  Term *
+                </Label>
                 <Select 
                   value={formData.term_name} 
                   onValueChange={(value) => setFormData({ ...formData, term_name: value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="mt-1.5 border-slate-300 focus:border-slate-500 focus:ring-slate-500">
                     <SelectValue placeholder="Select term" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="border-slate-200">
                     {TERM_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
+                      <SelectItem key={option.value} value={option.value} className="focus:bg-slate-100">
                         {option.label}
                       </SelectItem>
                     ))}
@@ -238,15 +253,20 @@ export const ImprovedSchoolCalendarManagement: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Start Date *</Label>
+                  <Label className="text-slate-700 font-medium">Start Date *</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start">
-                        <CalendarDays className="mr-2 h-4 w-4" />
-                        {formData.start_date ? format(formData.start_date, 'MMM dd') : 'Select'}
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-start mt-1.5 border-slate-300 hover:bg-slate-50 focus:border-slate-500"
+                      >
+                        <CalendarDays className="mr-2 h-4 w-4 text-slate-500" />
+                        <span className="text-slate-700">
+                          {formData.start_date ? format(formData.start_date, 'MMM dd') : 'Select'}
+                        </span>
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
+                    <PopoverContent className="w-auto p-0 border-slate-200">
                       <CalendarPicker
                         mode="single"
                         selected={formData.start_date || undefined}
@@ -258,15 +278,20 @@ export const ImprovedSchoolCalendarManagement: React.FC = () => {
                 </div>
 
                 <div>
-                  <Label>End Date *</Label>
+                  <Label className="text-slate-700 font-medium">End Date *</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start">
-                        <CalendarDays className="mr-2 h-4 w-4" />
-                        {formData.end_date ? format(formData.end_date, 'MMM dd') : 'Select'}
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-start mt-1.5 border-slate-300 hover:bg-slate-50 focus:border-slate-500"
+                      >
+                        <CalendarDays className="mr-2 h-4 w-4 text-slate-500" />
+                        <span className="text-slate-700">
+                          {formData.end_date ? format(formData.end_date, 'MMM dd') : 'Select'}
+                        </span>
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
+                    <PopoverContent className="w-auto p-0 border-slate-200">
                       <CalendarPicker
                         mode="single"
                         selected={formData.end_date || undefined}
@@ -278,11 +303,20 @@ export const ImprovedSchoolCalendarManagement: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-2 pt-4">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <div className="flex justify-end space-x-3 pt-6 border-t border-slate-200">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsDialogOpen(false)}
+                  className="border-slate-300 text-slate-700 hover:bg-slate-100"
+                >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={createTermMutation.isPending}>
+                <Button 
+                  type="submit" 
+                  disabled={createTermMutation.isPending}
+                  className="bg-slate-700 hover:bg-slate-800 text-white"
+                >
                   {createTermMutation.isPending ? 'Creating...' : 'Create Term'}
                 </Button>
               </div>
@@ -293,11 +327,11 @@ export const ImprovedSchoolCalendarManagement: React.FC = () => {
 
       {/* Current Term Alert */}
       {currentTerm && (
-        <Alert className="bg-green-50 border-green-200">
-          <CheckCircle className="h-4 w-4 text-green-600" />
-          <AlertDescription className="text-green-800">
+        <Alert className="bg-slate-50 border-slate-300">
+          <CheckCircle2 className="h-4 w-4 text-slate-700" />
+          <AlertDescription className="text-slate-800">
             <strong>Current Term:</strong> {currentTerm.term_name} {currentTerm.academic_year}
-            <span className="ml-2 text-sm">
+            <span className="ml-2 text-sm text-slate-600">
               ({format(new Date(currentTerm.start_date), 'MMM dd')} - {format(new Date(currentTerm.end_date), 'MMM dd')})
             </span>
           </AlertDescription>
@@ -307,94 +341,182 @@ export const ImprovedSchoolCalendarManagement: React.FC = () => {
       {/* Academic Years Overview */}
       <div className="space-y-6">
         {Object.keys(termsByYear).length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center">
-              <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No Academic Terms</h3>
-              <p className="text-gray-500 mb-4">Create your first academic term to start managing the school calendar</p>
+          <Card className="border-slate-200">
+            <CardContent className="p-12 text-center">
+              <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Calendar className="w-10 h-10 text-slate-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">No Academic Terms Configured</h3>
+              <p className="text-slate-600 mb-6 max-w-md mx-auto">
+                Create your first academic term to start managing the school calendar and term schedules
+              </p>
+              <Button 
+                onClick={() => setIsDialogOpen(true)}
+                className="bg-slate-700 hover:bg-slate-800 text-white"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create First Term
+              </Button>
             </CardContent>
           </Card>
         ) : (
-          Object.entries(termsByYear).map(([year, terms]) => (
-            <Card key={year} className="overflow-hidden">
-              <CardHeader className="bg-gray-50">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-xl">Academic Year {year}</CardTitle>
-                    <CardDescription>
-                      {terms.length} of 3 terms configured
-                    </CardDescription>
-                  </div>
-                  <Badge variant={terms.length === 3 ? "default" : "secondary"}>
-                    {terms.length}/3 Terms
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {TERM_OPTIONS.map((termOption) => {
-                    const existingTerm = terms.find(t => t.term_name === termOption.value);
-                    
-                    return (
-                      <div key={termOption.value} className={`
-                        p-4 rounded-lg border-2 transition-all
-                        ${existingTerm 
-                          ? 'border-green-200 bg-green-50' 
-                          : 'border-dashed border-gray-300 bg-gray-50'
-                        }
-                      `}>
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium text-gray-900">{termOption.value}</h4>
-                          {existingTerm?.is_current && (
-                            <Badge className="bg-blue-100 text-blue-800">Current</Badge>
-                          )}
+          Object.entries(termsByYear)
+            .sort(([yearA], [yearB]) => parseInt(yearB) - parseInt(yearA))
+            .map(([year, terms]) => {
+              const currentYearTerm = terms.find(t => t.is_current);
+              const isCurrentYear = !!currentYearTerm;
+              
+              return (
+                <Card key={year} className="border-slate-200 shadow-sm overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 pb-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-white border-2 border-slate-300 rounded-lg flex items-center justify-center">
+                          <Calendar className="w-6 h-6 text-slate-700" />
                         </div>
+                        <div>
+                          <CardTitle className="text-xl font-bold text-slate-900">
+                            Academic Year {year}
+                          </CardTitle>
+                          <CardDescription className="text-slate-600 mt-1">
+                            {terms.length} of 3 terms configured
+                          </CardDescription>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isCurrentYear && (
+                          <Badge className="bg-slate-700 text-white border-0 px-3 py-1">
+                            Active Year
+                          </Badge>
+                        )}
+                        <Badge 
+                          variant={terms.length === 3 ? "default" : "secondary"}
+                          className={terms.length === 3 
+                            ? "bg-emerald-100 text-emerald-800 border-emerald-200" 
+                            : "bg-slate-200 text-slate-700 border-slate-300"
+                          }
+                        >
+                          {terms.length}/3 Terms
+                        </Badge>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  
+                  <CardContent className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                      {TERM_OPTIONS.map((termOption, index) => {
+                        const existingTerm = terms.find(t => t.term_name === termOption.value);
+                        const isCurrent = existingTerm?.is_current;
                         
-                        {existingTerm ? (
-                          <div className="space-y-2">
-                            <p className="text-sm text-gray-600">
-                              {format(new Date(existingTerm.start_date), 'MMM dd')} - {format(new Date(existingTerm.end_date), 'MMM dd')}
-                            </p>
-                            {!existingTerm.is_current && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setCurrentTermMutation.mutate(existingTerm.id)}
-                                disabled={setCurrentTermMutation.isPending}
-                                className="w-full"
-                              >
-                                Set as Current
-                              </Button>
+                        return (
+                          <div 
+                            key={termOption.value} 
+                            className={`
+                              relative rounded-xl border-2 p-5 transition-all duration-200
+                              ${existingTerm 
+                                ? isCurrent
+                                  ? 'border-slate-400 bg-slate-50 shadow-md' 
+                                  : 'border-slate-300 bg-white hover:border-slate-400' 
+                                : 'border-dashed border-slate-300 bg-slate-50/50 hover:bg-slate-100/80'
+                              }
+                            `}
+                          >
+                            {/* Term Header */}
+                            <div className="flex items-start justify-between mb-4">
+                              <div className="flex items-center gap-2">
+                                <div className={`
+                                  w-8 h-8 rounded-lg flex items-center justify-center
+                                  ${existingTerm 
+                                    ? 'bg-slate-700 text-white' 
+                                    : 'bg-slate-200 text-slate-500'
+                                  }
+                                `}>
+                                  {existingTerm ? (
+                                    <CheckCircle2 className="w-5 h-5" />
+                                  ) : (
+                                    <Circle className="w-5 h-5" />
+                                  )}
+                                </div>
+                                <div>
+                                  <h4 className="font-semibold text-slate-900">
+                                    {termOption.value}
+                                  </h4>
+                                  <p className="text-xs text-slate-500">
+                                    {index === 0 ? 'Jan - Apr' : index === 1 ? 'May - Aug' : 'Sep - Dec'}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              {isCurrent && (
+                                <Badge className="bg-slate-700 text-white border-0 text-xs px-2 py-0.5">
+                                  Current
+                                </Badge>
+                              )}
+                            </div>
+                            
+                            {/* Term Content */}
+                            {existingTerm ? (
+                              <div className="space-y-3">
+                                <div className="flex items-center gap-2 text-sm text-slate-700 bg-white p-2 rounded-lg border border-slate-200">
+                                  <CalendarDays className="w-4 h-4 text-slate-500" />
+                                  <span className="font-medium">
+                                    {format(new Date(existingTerm.start_date), 'MMM dd')} 
+                                    <span className="mx-1 text-slate-400">→</span>
+                                    {format(new Date(existingTerm.end_date), 'MMM dd')}
+                                  </span>
+                                </div>
+                                
+                                {!isCurrent && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setCurrentTermMutation.mutate(existingTerm.id)}
+                                    disabled={setCurrentTermMutation.isPending}
+                                    className="w-full border-slate-300 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                                  >
+                                    <Clock className="w-3 h-3 mr-2" />
+                                    Set as Current
+                                  </Button>
+                                )}
+                                
+                                {isCurrent && (
+                                  <div className="flex items-center gap-2 text-xs text-slate-600 bg-white p-2 rounded-lg border border-slate-200">
+                                    <Info className="w-3 h-3" />
+                                    <span>Active term for all students</span>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                <p className="text-sm text-slate-500 text-center py-2">
+                                  Term not configured
+                                </p>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setFormData({
+                                      ...formData,
+                                      term_name: termOption.value,
+                                      academic_year: year
+                                    });
+                                    setIsDialogOpen(true);
+                                  }}
+                                  className="w-full border-slate-300 text-slate-700 hover:bg-slate-700 hover:text-white transition-colors"
+                                >
+                                  <Plus className="w-3 h-3 mr-1" />
+                                  Configure Term
+                                </Button>
+                              </div>
                             )}
                           </div>
-                        ) : (
-                          <div className="text-center">
-                            <p className="text-sm text-gray-500 mb-2">Not configured</p>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setFormData({
-                                  ...formData,
-                                  term_name: termOption.value,
-                                  academic_year: year
-                                });
-                                setIsDialogOpen(true);
-                              }}
-                              className="w-full"
-                            >
-                              <Plus className="w-3 h-3 mr-1" />
-                              Add
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })
         )}
       </div>
     </div>
