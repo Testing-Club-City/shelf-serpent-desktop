@@ -753,8 +753,8 @@ export const SystemSettings: React.FC = () => {
 
   const handleSaveClassLimits = async () => {
     try {
-      console.log('Saving form limits:', formLimits);
-      console.log('Saving grade limits:', gradeLimits);
+      console.log('💾 Saving form limits:', formLimits);
+      console.log('💾 Saving grade limits:', gradeLimits);
       
       // Validate form limits
       const hasInvalidFormValues = Object.values(formLimits).some(value => {
@@ -777,7 +777,8 @@ export const SystemSettings: React.FC = () => {
         return;
       }
       
-      // Save form-level limits
+      // STEP 1: Save form-level limits to Supabase (cloud storage)
+      console.log('📤 Step 1: Saving to Supabase...');
       await updateSetting.mutateAsync({
         key: 'form_level_limits',
         value: formLimits,
@@ -790,31 +791,37 @@ export const SystemSettings: React.FC = () => {
         value: gradeLimits,
         description: 'Maximum books allowed per grade level (applies to all sections)'
       });
+      
+      console.log('✅ Settings saved to Supabase');
 
-      // Now update all classes in the database to use form-level limits
-      await invoke('update_class_limits_by_form_level', { 
+      // STEP 2: Update LOCAL database classes with new limits
+      console.log('💿 Step 2: Updating local database...');
+      const result = await invoke('update_class_limits_by_form_level', { 
         formLimits: {
-          1: formLimits.form1,
-          2: formLimits.form2,
-          3: formLimits.form3,
-          4: formLimits.form4
+          1: Number(formLimits.form1),
+          2: Number(formLimits.form2),
+          3: Number(formLimits.form3),
+          4: Number(formLimits.form4)
         },
         gradeLimits: {
-          7: gradeLimits.grade7,
-          8: gradeLimits.grade8,
-          9: gradeLimits.grade9,
-          10: gradeLimits.grade10,
-          11: gradeLimits.grade11,
-          12: gradeLimits.grade12
+          7: Number(gradeLimits.grade7),
+          8: Number(gradeLimits.grade8),
+          9: Number(gradeLimits.grade9),
+          10: Number(gradeLimits.grade10),
+          11: Number(gradeLimits.grade11),
+          12: Number(gradeLimits.grade12)
         }
-      });
+      }) as { updated_classes: number; message: string };
+      
+      console.log('✅ Local database updated:', result);
 
       toast({
         title: 'Success',
-        description: 'Borrowing limits have been updated for all classes successfully.',
+        description: `Borrowing limits updated successfully! ${result.updated_classes} classes updated in local database.`,
+        duration: 5000,
       });
     } catch (error) {
-      console.error('Error saving class limits:', error);
+      console.error('❌ Error saving class limits:', error);
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to save borrowing limits. Please try again.',

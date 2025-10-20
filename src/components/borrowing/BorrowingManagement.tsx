@@ -65,6 +65,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { NewBorrowingForm } from './NewBorrowingForm';
 
 import { BookReturnForm } from './BookReturnForm';
+import { MultiBookReturnForm } from './MultiBookReturnForm';
 import { DirectReturnForm } from './DirectReturnForm';
 import { EnhancedBookReturnForm } from './EnhancedBookReturnForm';
 import { useBorrowings, useOverdueBorrowings, useFineCollection, useReturnBorrowing, useTheftReports } from '@/hooks/useBorrowings';
@@ -1462,7 +1463,7 @@ export const BorrowingManagement = ({ initialTab = 'overview' }: BorrowingManage
     }
     
     return (
-      <BookReturnForm
+      <MultiBookReturnForm
         initialBorrowing={selectedBorrowing}
         onSubmit={handleReturnSubmit}
         onCancel={() => {

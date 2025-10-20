@@ -20,6 +20,10 @@ pub async fn update_class_limits_by_form_level(
     grade_limits: HashMap<i32, i32>,
     state: State<'_, DatabaseState>,
 ) -> Result<UpdateResult, String> {
+    println!("🎯 Starting class limits update...");
+    println!("📋 Form limits to apply: {:?}", form_limits);
+    println!("📋 Grade limits to apply: {:?}", grade_limits);
+    
     let conn = state.get_connection().lock()
         .map_err(|e| format!("Database lock error: {}", e))?;
     
@@ -27,6 +31,8 @@ pub async fn update_class_limits_by_form_level(
     
     // Update Form-based classes (Secondary School)
     for (form_level, max_books) in form_limits.iter() {
+        println!("📚 Updating Form {} to {} books...", form_level, max_books);
+        
         let result = conn.execute(
             "UPDATE classes 
              SET max_books_allowed = ?1, updated_at = datetime('now')
@@ -39,16 +45,19 @@ pub async fn update_class_limits_by_form_level(
         match result {
             Ok(count) => {
                 updated_count += count as i32;
-                println!("Updated {} classes for Form {}", count, form_level);
+                println!("✅ Updated {} classes for Form {} to {} books", count, form_level, max_books);
             }
             Err(e) => {
-                eprintln!("Error updating Form {}: {}", form_level, e);
+                eprintln!("❌ Error updating Form {}: {}", form_level, e);
+                return Err(format!("Failed to update Form {}: {}", form_level, e));
             }
         }
     }
     
     // Update Grade-based classes (Primary/CBC)
     for (grade_level, max_books) in grade_limits.iter() {
+        println!("📚 Updating Grade {} to {} books...", grade_level, max_books);
+        
         let result = conn.execute(
             "UPDATE classes 
              SET max_books_allowed = ?1, updated_at = datetime('now')
@@ -61,13 +70,16 @@ pub async fn update_class_limits_by_form_level(
         match result {
             Ok(count) => {
                 updated_count += count as i32;
-                println!("Updated {} classes for Grade {}", count, grade_level);
+                println!("✅ Updated {} classes for Grade {} to {} books", count, grade_level, max_books);
             }
             Err(e) => {
-                eprintln!("Error updating Grade {}: {}", grade_level, e);
+                eprintln!("❌ Error updating Grade {}: {}", grade_level, e);
+                return Err(format!("Failed to update Grade {}: {}", grade_level, e));
             }
         }
     }
+    
+    println!("🎉 Class limits update complete! Total classes updated: {}", updated_count);
     
     Ok(UpdateResult {
         updated_classes: updated_count,

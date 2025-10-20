@@ -26,10 +26,11 @@ pub async fn check_student_borrowing_limit(
         .map_err(|e| format!("Database lock error: {}", e))?;
     
     // Get student's class information including form level
+    // NOTE: Students are linked to classes via class_grade field (NOT class_id which is NULL)
     let class_info: Result<(Option<String>, Option<i64>, Option<i64>), rusqlite::Error> = conn.query_row(
         "SELECT c.class_name, c.max_books_allowed, c.form_level
          FROM students s
-         LEFT JOIN classes c ON s.class_id = c.id
+         LEFT JOIN classes c ON s.class_grade = c.class_name AND c.deleted = 0
          WHERE s.id = ?1 AND s.deleted = 0",
         [&student_id],
         |row| {
@@ -43,15 +44,24 @@ pub async fn check_student_borrowing_limit(
     
     let (class_name, max_books_allowed, form_level) = match class_info {
         Ok((name, limit, level)) => {
+            println!("📚 Student class info - Name: {:?}, Limit: {:?}, Form: {:?}", name, limit, level);
+            
             // Provide more context in the class name if form level is available
             let display_name = if let (Some(ref n), Some(l)) = (&name, level) {
                 Some(format!("{} (Form {})", n, l))
             } else {
                 name
             };
+            
+            // Log warning if limit is NULL
+            if limit.is_none() {
+                println!("⚠️  WARNING: max_books_allowed is NULL for student {}, using default of 2", student_id);
+            }
+            
             (display_name, limit.unwrap_or(2), level)
         },
-        Err(_) => {
+        Err(e) => {
+            println!("❌ Error fetching student class info: {}", e);
             return Ok(BorrowingLimitCheck {
                 can_borrow: false,
                 current_borrowed: 0,
