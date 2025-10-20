@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           updated_at: new Date().toISOString(),
           last_activity: new Date().toISOString(),
           session_valid: true,
-          offline_expiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+          offline_expiry: new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000).toISOString(), // 2 years
         };
 
         await invoke('store_authenticated_session', { sessionData: userSession });
@@ -161,7 +161,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             updated_at: new Date().toISOString(),
             last_activity: new Date().toISOString(),
             session_valid: true,
-            offline_expiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            offline_expiry: new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000).toISOString(),
           };
 
           await invoke('store_authenticated_session', { sessionData: userSession });

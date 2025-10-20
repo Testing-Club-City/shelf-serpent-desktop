@@ -154,8 +154,8 @@ impl AuthManager {
     ) -> UserSession {
         let now = Utc::now();
         let expires_at = now + Duration::seconds(expires_in);
-        // Offline sessions are valid for 30 days
-        let offline_expiry = now + Duration::days(30);
+        // Offline sessions are valid for 2 years
+        let offline_expiry = now + Duration::days(730);
 
         UserSession {
             id: Uuid::new_v4().to_string(),

@@ -111,7 +111,7 @@ export const OfflineAuthProvider = ({ children }: { children: React.ReactNode })
           role: user.user_metadata?.role || 'user',
           created_at: new Date().toISOString(),
           session_valid: true,
-          offline_expiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          offline_expiry: new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000).toISOString(),
         };
         localStorage.setItem('offline_session', JSON.stringify(userSession));
         console.log('Session saved to localStorage for browser environment');
@@ -131,7 +131,7 @@ export const OfflineAuthProvider = ({ children }: { children: React.ReactNode })
         updated_at: new Date().toISOString(),
         last_activity: new Date().toISOString(),
         session_valid: true,
-        offline_expiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
+        offline_expiry: new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000).toISOString(), // 2 years
         device_fingerprint: generateDeviceFingerprint(),
       };
 

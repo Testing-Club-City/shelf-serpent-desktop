@@ -123,7 +123,7 @@ export const DashboardOverview = ({ onTabChange, onQuickAction }: DashboardOverv
                     </div>
                   </div>
                   <div className="text-2xl font-bold text-blue-600">
-                    {dashboardStats?.todayActions || 56}
+                    {dashboardStats?.totalBorrowings ?? 0}
                   </div>
                 </div>
 
@@ -136,7 +136,7 @@ export const DashboardOverview = ({ onTabChange, onQuickAction }: DashboardOverv
                     </div>
                   </div>
                   <div className="text-2xl font-bold text-green-600">
-                    {dashboardStats?.totalCollectedFines ? Math.floor(dashboardStats.totalCollectedFines / 100) : 42}
+                    {dashboardStats?.returnsThisMonth ?? 0}
                   </div>
                 </div>
 
@@ -149,7 +149,7 @@ export const DashboardOverview = ({ onTabChange, onQuickAction }: DashboardOverv
                     </div>
                   </div>
                   <div className="text-2xl font-bold text-red-600">
-                    {dashboardStats?.activeClasses || 5}
+                    {dashboardStats?.activeClasses ?? 0}
                   </div>
                 </div>
               </div>

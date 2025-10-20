@@ -796,7 +796,9 @@ export const SystemSettings: React.FC = () => {
 
       // STEP 2: Update LOCAL database classes with new limits
       console.log('💿 Step 2: Updating local database...');
-      const result = await invoke('update_class_limits_by_form_level', { 
+      // IMPORTANT: Use snake_case keys to match Tauri command parameters (Rust expects form_limits, grade_limits)
+      const payload = {
+        // Provide both camelCase and snake_case keys for compatibility with the Tauri command binding
         formLimits: {
           1: Number(formLimits.form1),
           2: Number(formLimits.form2),
@@ -810,8 +812,23 @@ export const SystemSettings: React.FC = () => {
           10: Number(gradeLimits.grade10),
           11: Number(gradeLimits.grade11),
           12: Number(gradeLimits.grade12)
+        },
+        form_limits: {
+          1: Number(formLimits.form1),
+          2: Number(formLimits.form2),
+          3: Number(formLimits.form3),
+          4: Number(formLimits.form4)
+        },
+        grade_limits: {
+          7: Number(gradeLimits.grade7),
+          8: Number(gradeLimits.grade8),
+          9: Number(gradeLimits.grade9),
+          10: Number(gradeLimits.grade10),
+          11: Number(gradeLimits.grade11),
+          12: Number(gradeLimits.grade12)
         }
-      }) as { updated_classes: number; message: string };
+      };
+      const result = await invoke('update_class_limits_by_form_level', payload) as { updated_classes: number; message: string };
       
       console.log('✅ Local database updated:', result);
 

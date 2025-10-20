@@ -15,7 +15,8 @@ interface LocalLibraryStats {
 interface EnhancedDashboardStats {
   totalUsers: number;
   activeClasses: number;
-  todayActions: number;
+  totalBorrowings: number;
+  returnsThisMonth: number;
   totalBooks: number;
   activeBorrowings: number;
   overdueBorrowings: number;
@@ -26,7 +27,8 @@ interface EnhancedDashboardStats {
 const defaultStats: EnhancedDashboardStats = {
   totalUsers: 0,
   activeClasses: 0,
-  todayActions: 0,
+  totalBorrowings: 0,
+  returnsThisMonth: 0,
   totalBooks: 0,
   activeBorrowings: 0,
   overdueBorrowings: 0,
@@ -49,15 +51,37 @@ export const useDashboardStats = () => {
         
         const coreStats = await Promise.race([statsPromise, timeoutPromise]);
         
-        // Map local stats to dashboard format with fallbacks
+        // Fetch extra stats from local DB in parallel (non-blocking fallbacks on failure)
+        const [classReport, allBorrowings] = await Promise.all([
+          invoke('get_class_borrowing_report').catch(() => [] as any[]),
+          invoke('get_borrowings').catch(() => [] as any[])
+        ]);
+
+        // Calculate returns this month from local borrowings
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth();
+        const returnsThisMonth = (Array.isArray(allBorrowings) ? allBorrowings : []).filter((b: any) => {
+          if (!b.returned_date) return false;
+          const d = new Date(b.returned_date);
+          return d.getFullYear() === year && d.getMonth() === month;
+        }).length;
+
+        // Count classes that currently have active borrowings
+        const activeClasses = (Array.isArray(classReport) ? classReport : []).filter((row: any) => {
+          return (row.active_borrowings || row.activeBorrowings || 0) > 0;
+        }).length;
+
+        // Map local stats to dashboard format with real data
         const enhancedStats: EnhancedDashboardStats = {
           totalUsers: coreStats.total_students || 0,
-          activeClasses: 0, // Skip for performance - will be loaded separately if needed
-          todayActions: coreStats.total_borrowings || 0,
+          activeClasses,
+          totalBorrowings: coreStats.total_borrowings || 0,
+          returnsThisMonth,
           totalBooks: coreStats.total_books || 0,
           activeBorrowings: coreStats.total_borrowings || 0,
           overdueBorrowings: coreStats.overdue_books || 0,
-          totalCollectedFines: 0 // Skip for performance - will be loaded separately if needed
+          totalCollectedFines: 0 // Load later if needed
         };
 
         console.log('📊 Local dashboard stats loaded successfully:', enhancedStats);
