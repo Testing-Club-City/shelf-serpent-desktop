@@ -17,6 +17,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { invoke } from '@tauri-apps/api/core';
+import { Loader2 } from 'lucide-react';
 
 const EditUserSchema = z.object({
   first_name: z.string().min(1, 'First name is required'),
@@ -44,6 +45,17 @@ export const UserManagement: React.FC = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const { toast } = useToast();
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [createFormData, setCreateFormData] = useState({
+    email: '',
+    password: '',
+    first_name: '',
+    last_name: '',
+    phone: '',
+    role: 'librarian' as 'librarian' | 'admin',
+  });
+  const [formErrors, setFormErrors] = useState({ email: '', password: '' });
 
   // Fetch real user data from profiles table
   const { data: users = [], isLoading, refetch } = useQuery({
@@ -191,6 +203,44 @@ export const UserManagement: React.FC = () => {
     }
   };
 
+  // Create user form validation and submit handlers
+  const validateCreateForm = () => {
+    let isValid = true;
+    const errors = { email: '', password: '' } as { email: string; password: string };
+    if (!createFormData.email) { errors.email = 'Email is required'; isValid = false; }
+    else if (!/\S+@\S+\.\S+/.test(createFormData.email)) { errors.email = 'Email is invalid'; isValid = false; }
+    if (!createFormData.password) { errors.password = 'Password is required'; isValid = false; }
+    else if (createFormData.password.length < 6) { errors.password = 'Password must be at least 6 characters'; isValid = false; }
+    setFormErrors(errors);
+    return isValid;
+  };
+
+  const handleCreateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateCreateForm()) return;
+    try {
+      setIsCreating(true);
+      const { email, password, role, first_name, last_name, phone } = createFormData;
+      await invoke('create_user_account', {
+        email,
+        password,
+        firstName: first_name,
+        lastName: last_name,
+        phone,
+        role,
+      });
+      toast({ title: 'Success', description: `${role === 'admin' ? 'Admin' : 'Librarian'} created` });
+      setIsCreateDialogOpen(false);
+      setCreateFormData({ email: '', password: '', first_name: '', last_name: '', phone: '', role: 'librarian' });
+      setFormErrors({ email: '', password: '' });
+      refetch();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err?.toString() || 'Failed to create user', variant: 'destructive' });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   const getInitials = (firstName?: string, lastName?: string) => {
     const first = firstName?.charAt(0)?.toUpperCase() || '';
     const last = lastName?.charAt(0)?.toUpperCase() || '';
@@ -217,10 +267,71 @@ export const UserManagement: React.FC = () => {
             <Download className="w-4 h-4" />
             Export
           </Button>
-          <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
-            <UserPlus className="w-4 h-4" />
-            Add User
-          </Button>
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
+                <UserPlus className="w-4 h-4" />
+                Add User
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[520px]">
+              <DialogHeader>
+                <DialogTitle>Create User</DialogTitle>
+                <DialogDescription>
+                  Create a librarian or admin account.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleCreateSubmit} className="space-y-4">
+                <div>
+                  <Label htmlFor="create_role">Role *</Label>
+                  <Select value={createFormData.role} onValueChange={(v: 'librarian' | 'admin') => setCreateFormData({ ...createFormData, role: v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="librarian">Librarian</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="create_first_name">First Name *</Label>
+                    <Input id="create_first_name" value={createFormData.first_name} onChange={(e) => setCreateFormData({ ...createFormData, first_name: e.target.value })} required />
+                  </div>
+                  <div>
+                    <Label htmlFor="create_last_name">Last Name *</Label>
+                    <Input id="create_last_name" value={createFormData.last_name} onChange={(e) => setCreateFormData({ ...createFormData, last_name: e.target.value })} required />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="create_email">Email *</Label>
+                  <Input id="create_email" type="email" value={createFormData.email} onChange={(e) => setCreateFormData({ ...createFormData, email: e.target.value })} required className={formErrors.email ? 'border-red-500' : ''} />
+                  {formErrors.email && (<p className="mt-1 text-sm text-red-500">{formErrors.email}</p>)}
+                </div>
+
+                <div>
+                  <Label htmlFor="create_password">Password *</Label>
+                  <Input id="create_password" type="password" value={createFormData.password} onChange={(e) => setCreateFormData({ ...createFormData, password: e.target.value })} required placeholder="Minimum 6 characters" className={formErrors.password ? 'border-red-500' : ''} />
+                  {formErrors.password && (<p className="mt-1 text-sm text-red-500">{formErrors.password}</p>)}
+                </div>
+
+                <div>
+                  <Label htmlFor="create_phone">Phone Number</Label>
+                  <Input id="create_phone" value={createFormData.phone} onChange={(e) => setCreateFormData({ ...createFormData, phone: e.target.value })} />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button type="button" variant="outline" onClick={() => { setIsCreateDialogOpen(false); setFormErrors({ email: '', password: '' }); }}>Cancel</Button>
+                  <Button type="submit" disabled={isCreating}>
+                    {isCreating ? (<><Loader2 className="w-4 h-4 animate-spin mr-2" />Creating...</>) : (`Create ${createFormData.role === 'admin' ? 'Admin' : 'Librarian'}`)}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 

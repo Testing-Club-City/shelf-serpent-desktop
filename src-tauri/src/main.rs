@@ -502,6 +502,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // User management commands
             update_user_password,
             update_user_profile,
+            create_user_account,
             get_activity_logs,
             get_activity_log_stats,
             export_activity_logs,

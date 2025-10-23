@@ -57,7 +57,7 @@ pub use graduated_students::{
     get_graduated_students,
     get_student_clearance_data
 };
-pub use user_management::{update_user_password, update_user_profile};
+pub use user_management::{update_user_password, update_user_profile, create_user_account};
 pub use borrowing_limits::{
     check_student_borrowing_limit,
     check_staff_borrowing_limit,

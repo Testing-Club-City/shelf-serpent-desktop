@@ -80,4 +80,5 @@ base64 = "0.22"
 rayon = "1.8"
 lazy_static = "1.4"
 rand = "0.8"
+urlencoding = "2"
 
